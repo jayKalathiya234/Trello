@@ -238,7 +238,7 @@ exports.updateStartDateAndDueDateById = async (req, res) => {
         checkCardDataId = await card.findByIdAndUpdate(
             id,
             { $set: updateData },
-            { Fnew: true }
+            { new: true }
         );
 
         return res.status(200).json({ status: 200, success: true, message: "Card Data Updated SuccessFully...", data: checkCardDataId })
