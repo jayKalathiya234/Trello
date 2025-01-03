@@ -29,6 +29,9 @@ const boardSchema = mongoose.Schema({
     invitationLink: {
         type: String
     },
+    color: {
+        type: String
+    }
 }, {
     timestamps: true,
     versionKey: false

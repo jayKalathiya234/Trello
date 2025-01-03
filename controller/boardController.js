@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 exports.createBoard = async (req, res) => {
     try {
-        let { workSpaceId, title, visibility, members, invitationLink } = req.body
+        let { workSpaceId, title, visibility, members, invitationLink, color } = req.body
 
         let checkExistWorkSpaceId = await board.findOne({ workSpaceId, title })
 
@@ -21,7 +21,8 @@ exports.createBoard = async (req, res) => {
             members: [
                 { user: req.user._id, role: 'admin' }
             ],
-            invitationLink
+            invitationLink,
+            color
         })
 
         return res.status(201).json({ status: 201, success: true, message: "Board Create SuccessFully...", data: checkExistWorkSpaceId });
