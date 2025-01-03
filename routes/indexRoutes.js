@@ -1,6 +1,6 @@
 const express = require('express');
 const { createUser, getAllUsers, getUserById, updateUserById, deleteUserById } = require('../controller/userController');
-const { loginUser } = require('../auth/userLogin');
+const { loginUser, userGoggleLogin } = require('../auth/userLogin');
 const { createWorkSpace, getAllWorkSpace, getWorkSpaceById, updateWorkSpaceById, deleteWorkSpaceById, joinWorkSpaceUsingLink, getMyWorkSpace, removeMemberFromWorkSpace, updateMemberRoleById, workSpaceJoinInvitaionLingUsingEmail } = require('../controller/workSpaceController');
 const { auth } = require('../helper/auth');
 const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail } = require('../controller/boardController');
@@ -12,6 +12,7 @@ const indexRoutes = express.Router();
 // Auth Routes
 
 indexRoutes.post('/login', loginUser);
+indexRoutes.post('/googleLogin', userGoggleLogin);
 
 // User Routes
 
