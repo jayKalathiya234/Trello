@@ -149,7 +149,7 @@ exports.getBoardByWorkSpaceId = async (req, res) => {
     try {
         let id = req.params.id
 
-        let getWorkSpaceIdData = await board.find({ workSpaceId: id })
+        let getWorkSpaceIdData = await board.find({ workSpaceId: id }).populate('workSpaceId').populate('members.user')
 
         if (!getWorkSpaceIdData) {
             return res.status(404).json({ status: 404, success: false, message: "board Not Found" })
@@ -250,15 +250,59 @@ exports.removeMemberFromBoard = async (req, res) => {
         const checkBoard = await board.findById(id);
 
         if (!checkBoard) {
-            return res.status(404).json({ status: 404, success: false, message: 'Board not found' });
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Board not found'
+            });
         }
 
-        const userMembership = checkBoard.members.find(
+        const loggedInUser = checkBoard.members.find(
             member => member.user.toString() === req.user._id.toString()
         );
 
-        if (!userMembership || userMembership.role !== 'admin') {
-            return res.status(403).json({ status: 403, success: false, message: 'Not authorized to remove members' });
+        if (!loggedInUser || loggedInUser.role !== 'admin') {
+            return res.status(403).json({
+                status: 403,
+                success: false,
+                message: 'Only admins can remove members'
+            });
+        }
+
+        const memberToRemove = checkBoard.members.find(
+            member => member.user.toString() === userId
+        );
+
+        if (!memberToRemove) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Member to remove not found'
+            });
+        }
+
+        const isAdminRemovingSelf = req.user._id.toString() === userId;
+
+        if (isAdminRemovingSelf) {
+            const otherAdmins = checkBoard.members.filter(
+                member => member.role === 'admin' && member.user.toString() !== userId
+            );
+
+            if (otherAdmins.length === 0) {
+                const newAdmin = checkBoard.members.find(
+                    member => member.role === 'member' && member.user.toString() !== userId
+                );
+
+                if (!newAdmin) {
+                    return res.status(400).json({ status: 400, success: false, message: 'Cannot remove last admin when no other members exist' });
+                }
+
+                newAdmin.role = 'admin';
+            }
+        } else {
+            if (memberToRemove.role === 'admin') {
+                return res.status(403).json({ status: 403, success: false, message: 'Cannot remove other admins' });
+            }
         }
 
         checkBoard.members = checkBoard.members.filter(

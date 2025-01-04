@@ -186,7 +186,6 @@ exports.getMyWorkSpace = async (req, res) => {
 exports.removeMemberFromWorkSpace = async (req, res) => {
     try {
         let id = req.params.id
-
         let { userId } = req.body
 
         let checkWorkSpace = await workSpace.findById(id)
@@ -195,17 +194,32 @@ exports.removeMemberFromWorkSpace = async (req, res) => {
             return res.status(404).json({ status: 404, message: "WorkSpace Not Found" })
         }
 
-        let checkUser = checkWorkSpace.members.find(m => m.user.equals(req.user._id));
+        let loggedInUser = checkWorkSpace.members.find(m => m.user.equals(req.user._id));
 
-        // if (!checkUser || (checkUser.role !== 'admin' && !checkWorkSpace.owner.equals(req.user._id))) {
-        //     return res.status(403).json({ status: 403, message: "You do not have permission to remove members" })
-        // }
+        if (!loggedInUser || loggedInUser.role !== 'admin') {
+            return res.status(403).json({ status: 403, message: "Only admins can remove members" });
+        }
 
         if (checkWorkSpace.owner.equals(userId)) {
             return res.status(400).json({ status: 400, message: "Cannot remove workspace owner" });
         }
 
-        checkWorkSpace.members = checkWorkSpace.members.filter(m => !m.user.equals(userId))
+        let isAdminRemovingSelf = loggedInUser.user.equals(userId);
+
+        if (isAdminRemovingSelf) {
+            checkWorkSpace.members = checkWorkSpace.members.filter(m => !m.user.equals(userId));
+
+            if (checkWorkSpace.members.length > 0) {
+                checkWorkSpace.members[0].role = 'admin';
+            }
+        } else {
+            let memberToRemove = checkWorkSpace.members.find(m => m.user.equals(userId));
+            if (memberToRemove && memberToRemove.role === 'admin') {
+                return res.status(403).json({ status: 403, message: "Cannot remove other admins" });
+            }
+
+            checkWorkSpace.members = checkWorkSpace.members.filter(m => !m.user.equals(userId));
+        }
 
         await checkWorkSpace.save();
 
