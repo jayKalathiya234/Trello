@@ -359,3 +359,52 @@ exports.getBoardJoinInvitaionLingUsingEmail = async (req, res) => {
         return res.status(500).json({ status: 500, success: false, message: error.message })
     }
 }
+
+exports.startedBoard = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let { status } = req.body;
+
+        let checkBoard = await board.findById(id);
+
+        if (!checkBoard) {
+            return res.status(404).json({ status: 404, success: false, message: "Board not found" });
+        }
+
+        const isMember = checkBoard.members.some(
+            member => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({ status: 403, success: false, message: "Only board members can change the board status" });
+        }
+
+        checkBoard.status = status;
+        await checkBoard.save();
+
+        return res.status(200).json({ status: 200, success: true, message: "Board status updated successfully", data: checkBoard });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.getAllStartedBoadr = async (req, res) => {
+    try {
+        const startedBoards = await board.find({
+            'members.user': req.user._id,
+            'status': true
+        })
+        if (!startedBoards.length) {
+            return res.status(404).json({ status: 404, success: false, message: "No started boards found" });
+        }
+
+        return res.status(200).json({ status: 200, success: true, message: "Started boards retrieved successfully", data: startedBoards });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}

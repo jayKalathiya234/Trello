@@ -3,7 +3,7 @@ const { createUser, getAllUsers, getUserById, updateUserById, deleteUserById } =
 const { loginUser, userGoggleLogin } = require('../auth/userLogin');
 const { createWorkSpace, getAllWorkSpace, getWorkSpaceById, updateWorkSpaceById, deleteWorkSpaceById, joinWorkSpaceUsingLink, getMyWorkSpace, removeMemberFromWorkSpace, updateMemberRoleById, workSpaceJoinInvitaionLingUsingEmail } = require('../controller/workSpaceController');
 const { auth } = require('../helper/auth');
-const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail } = require('../controller/boardController');
+const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail, startedBoard, getAllStartedBoadr } = require('../controller/boardController');
 const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard } = require('../controller/listController');
 const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById } = require('../controller/cardController');
 const upload = require('../helper/imageUplode');
@@ -47,6 +47,8 @@ indexRoutes.get('/joinBoardByInvitation/:id', auth, joinBordByInvitationLink);
 indexRoutes.put('/updateBoardMemberRole/:id', auth, updateMemberRole);
 indexRoutes.put('/removeBoardmember/:id', auth, removeMemberFromBoard)
 indexRoutes.post('/boardInvitaionUsingEmail/:id', auth, getBoardJoinInvitaionLingUsingEmail);
+indexRoutes.post('/setStartedBoard/:id', auth, startedBoard)
+indexRoutes.get('/allStaredBoadrData', auth, getAllStartedBoadr)
 
 // List Routes
 
