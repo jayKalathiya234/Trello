@@ -35,6 +35,10 @@ const boardSchema = mongoose.Schema({
     status: {
         type: Boolean,
         default: false
+    },
+    closeStatus: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true,

@@ -44,7 +44,7 @@ exports.getAllBoards = async (req, res) => {
 
         let paginatedBord;
 
-        paginatedBord = await board.find().populate('workSpaceId').populate('members.user')
+        paginatedBord = await board.find({ closeStatus: false }).populate('workSpaceId').populate('members.user')
 
         let count = paginatedBord.length
 
@@ -393,10 +393,14 @@ exports.startedBoard = async (req, res) => {
 
 exports.getAllStartedBoadr = async (req, res) => {
     try {
+        let id = req.params.id
+
         const startedBoards = await board.find({
+            'workSpaceId': id,
             'members.user': req.user._id,
             'status': true
         })
+
         if (!startedBoards.length) {
             return res.status(404).json({ status: 404, success: false, message: "No started boards found" });
         }
@@ -406,5 +410,53 @@ exports.getAllStartedBoadr = async (req, res) => {
     } catch (error) {
         console.log(error);
         return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.setBoardCloseStatus = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let { closeStatus } = req.body
+
+        let getBoardData = await board.findById(id)
+
+        if (!getBoardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
+        }
+
+        const isMember = getBoardData.members.some(
+            member => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({ status: 403, success: false, message: "Only board members can change the board status" })
+        }
+
+        getBoardData.closeStatus = closeStatus
+
+        await getBoardData.save();
+
+        return res.status(200).json({ status: 200, success: true, message: "Board Close status Updated SuccessFully...", data: getBoardData })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.getAllCloseBoard = async (req, res) => {
+    try {
+        let allCloseBoard = await board.find({ closeStatus: true })
+
+        if (!allCloseBoard) {
+            return res.status(404).json({ status: 404, message: "Close Board Not Found" })
+        }
+
+        return res.status(200).json({ status: 200, count: allCloseBoard.length, success: true, message: "All Close Board Data Found SuccessFully...", data: allCloseBoard })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
     }
 }
