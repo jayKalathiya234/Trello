@@ -149,7 +149,7 @@ exports.getBoardByWorkSpaceId = async (req, res) => {
     try {
         let id = req.params.id
 
-        let getWorkSpaceIdData = await board.find({ workSpaceId: id }).populate('workSpaceId').populate('members.user')
+        let getWorkSpaceIdData = await board.find({ workSpaceId: id, closeStatus: false }).populate('workSpaceId').populate('members.user')
 
         if (!getWorkSpaceIdData) {
             return res.status(404).json({ status: 404, success: false, message: "board Not Found" })
@@ -447,10 +447,12 @@ exports.setBoardCloseStatus = async (req, res) => {
 
 exports.getAllCloseBoard = async (req, res) => {
     try {
-        let allCloseBoard = await board.find({ closeStatus: true })
+        let id = req.params.id
+
+        let allCloseBoard = await board.find({ _id: id, closeStatus: true })
 
         if (!allCloseBoard) {
-            return res.status(404).json({ status: 404, message: "Close Board Not Found" })
+            return res.status(404).json({ status: 404, success: false, message: "Close Board Not Found" })
         }
 
         return res.status(200).json({ status: 200, count: allCloseBoard.length, success: true, message: "All Close Board Data Found SuccessFully...", data: allCloseBoard })

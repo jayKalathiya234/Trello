@@ -50,7 +50,7 @@ indexRoutes.post('/boardInvitaionUsingEmail/:id', auth, getBoardJoinInvitaionLin
 indexRoutes.post('/setStartedBoard/:id', auth, startedBoard)
 indexRoutes.get('/allStaredBoadrData/:id', auth, getAllStartedBoadr)
 indexRoutes.post('/setBoardCloseStatus/:id', auth, setBoardCloseStatus)
-indexRoutes.get('/allCloseBoard', auth, getAllCloseBoard)
+indexRoutes.get('/allCloseBoard/:id', auth, getAllCloseBoard)
 
 // List Routes
 
