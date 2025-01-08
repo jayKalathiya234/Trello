@@ -163,6 +163,53 @@ exports.getBoardByWorkSpaceId = async (req, res) => {
     }
 }
 
+exports.getAllBoardUserMembers = async (req, res) => {
+    try {
+        const id = req.params.id;
+
+        const boards = await board.find({ workSpaceId: id, closeStatus: false }).populate('members.user', 'name email')
+
+        if (!boards || boards.length === 0) {
+            return res.status(404).json({ status: 404, success: false, message: "No boards found in this workspace" });
+        }
+
+        const userBoardsMap = new Map();
+
+        boards.forEach(board => {
+            board.members.forEach(member => {
+                const userId = member.user._id.toString();
+                const userData = member.user;
+
+                if (!userBoardsMap.has(userId)) {
+                    userBoardsMap.set(userId, {
+                        userData,
+                        boards: [],
+                    });
+                }
+
+                const userBoards = userBoardsMap.get(userId);
+
+                userBoards.boards.push({
+                    _id: board._id,
+                    title: board.title,
+                    visibility: board.visibility,
+                    role: member.role,
+                    totalMembers: board.members.length,
+                    color: board.color
+                });
+            });
+        });
+
+        const usersData = Array.from(userBoardsMap.values());
+
+        return res.status(200).json({ status: 200, success: true, message: "Board members data retrieved successfully", users: usersData, totalBoards: boards.length, });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
 exports.joinBordByInvitationLink = async (req, res) => {
     try {
         let id = req.params.id
@@ -449,7 +496,7 @@ exports.getAllCloseBoard = async (req, res) => {
     try {
         let id = req.params.id
 
-        let allCloseBoard = await board.find({ _id: id, closeStatus: true })
+        let allCloseBoard = await board.find({ workSpaceId: id, closeStatus: true }).populate('workSpaceId')
 
         if (!allCloseBoard) {
             return res.status(404).json({ status: 404, success: false, message: "Close Board Not Found" })

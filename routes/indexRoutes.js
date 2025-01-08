@@ -3,8 +3,8 @@ const { createUser, getAllUsers, getUserById, updateUserById, deleteUserById } =
 const { loginUser, userGoggleLogin } = require('../auth/userLogin');
 const { createWorkSpace, getAllWorkSpace, getWorkSpaceById, updateWorkSpaceById, deleteWorkSpaceById, joinWorkSpaceUsingLink, getMyWorkSpace, removeMemberFromWorkSpace, updateMemberRoleById, workSpaceJoinInvitaionLingUsingEmail } = require('../controller/workSpaceController');
 const { auth } = require('../helper/auth');
-const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail, startedBoard, getAllStartedBoadr, setBoardCloseStatus, getAllCloseBoard } = require('../controller/boardController');
-const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard } = require('../controller/listController');
+const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail, startedBoard, getAllStartedBoadr, setBoardCloseStatus, getAllCloseBoard, getAllBoardUserMembers } = require('../controller/boardController');
+const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard, getAllLists } = require('../controller/listController');
 const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById } = require('../controller/cardController');
 const upload = require('../helper/imageUplode');
 const indexRoutes = express.Router();
@@ -51,6 +51,7 @@ indexRoutes.post('/setStartedBoard/:id', auth, startedBoard)
 indexRoutes.get('/allStaredBoadrData/:id', auth, getAllStartedBoadr)
 indexRoutes.post('/setBoardCloseStatus/:id', auth, setBoardCloseStatus)
 indexRoutes.get('/allCloseBoard/:id', auth, getAllCloseBoard)
+indexRoutes.get('/allMembersBoard/:id', auth, getAllBoardUserMembers);
 
 // List Routes
 
@@ -60,6 +61,7 @@ indexRoutes.get('/getList/:id', auth, getListById);
 indexRoutes.get('/getArchivedList/:id', auth, getArchivedListForBoard);
 indexRoutes.put('/updateList/:id', auth, updateListById);
 indexRoutes.delete('/deleteList/:id', auth, deleteListById);
+indexRoutes.get('/allLists/:id', auth, getAllLists);
 
 // card Routes
 

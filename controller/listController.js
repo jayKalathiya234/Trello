@@ -1,5 +1,6 @@
 const list = require('../models/listModel');
 const board = require('../models/boardModels');
+const mongoose = require('mongoose')
 
 exports.createList = async (req, res) => {
     try {
@@ -38,6 +39,55 @@ exports.createList = async (req, res) => {
 
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.getAllLists = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let page = parseInt(req.query.page)
+        let pageSize = parseInt(req.query.pageSize)
+
+        if (page < 1 || pageSize < 1) {
+            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
+        }
+
+        let paginatedListData;
+
+        paginatedListData = await list.aggregate([
+            {
+                $match: {
+                    boardId: new mongoose.Types.ObjectId(id)
+                }
+            },
+            {
+                $lookup: {
+                    from: 'cards',
+                    localField: "_id",
+                    foreignField: "listId",
+                    as: "cardData"
+                }
+            }
+        ])
+
+        let count = paginatedListData.length
+
+        if (count === 0) {
+            return res.status(404).json({ status: 404, success: false, message: "List Data Not Found" })
+        }
+
+        if (page && pageSize) {
+            let startIndex = (page - 1) * pageSize
+            let lastIndex = (startIndex + pageSize)
+            paginatedListData = await paginatedListData.slice(startIndex, lastIndex)
+        }
+
+        return res.status(200).json({ status: 200, success: true, message: "All List Data Found SuccessFully...", data: paginatedListData })
+
+    } catch (error) {
+        console.log(error)
         return res.status(500).json({ status: 500, success: false, message: error.message })
     }
 }
