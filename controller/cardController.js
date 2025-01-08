@@ -280,6 +280,42 @@ exports.setAttachementById = async (req, res) => {
     }
 }
 
+exports.updateSetAttachement = async (req, res) => {
+    try {
+        let id = req.params.id;
+        let { url, image } = req.body;
+
+
+        let checkCardId = await card.findOne({ 'attachments._id': id });
+
+        if (!checkCardId) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        let attachment = checkCardId.attachments.id(id);
+
+        if (!attachment) {
+            return res.status(404).json({ status: 404, success: false, message: "Attachment Not Found" });
+        }
+
+        if (url) {
+            attachment.url = url;
+        }
+
+        if (req.files && req.files.image) {
+            attachment.image = req.files.image.map(file => file.path);
+        }
+
+        checkCardId = await checkCardId.save();
+
+        return res.status(200).json({ status: 200, success: true, message: "Attachment Updated Successfully", data: checkCardId });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, message: error.message });
+    }
+};
+
 exports.createCustomFields = async (req, res) => {
     try {
         let id = req.params.id
