@@ -34,6 +34,9 @@ const cardSchema = mongoose.Schema({
     label: [{
         data: {
             type: String
+        },
+        color: {
+            type: String
         }
     }],
     attachments: [{

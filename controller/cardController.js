@@ -139,7 +139,7 @@ exports.createLabel = async (req, res) => {
     try {
         let id = req.params.id
 
-        let { labelName } = req.body
+        let { labelName, color } = req.body
 
         let checkCardId = await card.findById(id)
 
@@ -149,7 +149,7 @@ exports.createLabel = async (req, res) => {
 
         checkCardId = await card.findByIdAndUpdate(
             id,
-            { $push: { label: { data: labelName } } },
+            { $push: { label: { data: labelName, color: color } } },
             { new: true }
         );
 
@@ -165,7 +165,7 @@ exports.editLabelById = async (req, res) => {
     try {
         let id = req.params.id
 
-        let { labelName } = req.body
+        let { labelName, color } = req.body
 
         let updateCardId = await card.findOne({ 'label._id': id })
 
@@ -175,7 +175,7 @@ exports.editLabelById = async (req, res) => {
 
         updateCardId = await card.findOneAndUpdate(
             { 'label._id': id },
-            { $set: { 'label.$.data': labelName } },
+            { $set: { 'label.$.data': labelName, 'label.$.color': color } },
             { new: true }
         );
 
