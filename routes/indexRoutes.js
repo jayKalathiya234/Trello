@@ -5,7 +5,7 @@ const { createWorkSpace, getAllWorkSpace, getWorkSpaceById, updateWorkSpaceById,
 const { auth } = require('../helper/auth');
 const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail, startedBoard, getAllStartedBoadr, setBoardCloseStatus, getAllCloseBoard, getAllBoardUserMembers } = require('../controller/boardController');
 const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard, getAllLists } = require('../controller/listController');
-const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById, updateSetAttachement } = require('../controller/cardController');
+const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById, updateSetAttachement, removeLableById } = require('../controller/cardController');
 const upload = require('../helper/imageUplode');
 const indexRoutes = express.Router();
 
@@ -72,6 +72,7 @@ indexRoutes.get('/getCardData/:id', auth, getCardDataById)
 indexRoutes.delete('/removeMember/:id', auth, removeMember);
 indexRoutes.post('/createLabel/:id', auth, createLabel);
 indexRoutes.put('/editLabel/:id', auth, editLabelById);
+indexRoutes.delete('/deleteLabel/:id', removeLableById);
 indexRoutes.post('/setDueDate/:id', auth, setStartDateAndDueDate)
 indexRoutes.put('/updateStartDateAndDueDate/:id', auth, updateStartDateAndDueDateById)
 indexRoutes.post('/setAttachmet/:id', auth, upload.fields([{ name: 'image' }]), setAttachementById);
