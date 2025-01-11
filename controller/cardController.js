@@ -4,6 +4,18 @@ exports.createCard = async (req, res) => {
     try {
         let { listId, title, description, dueDate, status, position, label, attachments, comments, customFields } = req.body
 
+        const staticLabels = [
+            { data: null, color: '#5E4DB2' },
+            { data: null, color: '#7F5F01' },
+            { data: null, color: '#206A83' },
+            { data: null, color: '#6CC3E0' },
+            { data: null, color: '#8C9BAB' },
+        ];
+
+        if (!label || label.length === 0) {
+            label = staticLabels;
+        }
+
         let checkCardIsExist = await card.findOne({ title })
 
         if (checkCardIsExist) {
