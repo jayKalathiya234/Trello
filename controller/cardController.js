@@ -237,7 +237,7 @@ exports.updateStartDateAndDueDateById = async (req, res) => {
             return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" })
         }
 
-        let updateData;
+        let updateData = {};
 
         if (startDate) {
             updateData.startDate = startDate
