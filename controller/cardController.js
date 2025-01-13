@@ -1,4 +1,6 @@
 const card = require('../models/cardModel')
+const List = require('../models/listModel')
+const Board = require('../models/boardModels')
 
 exports.createCard = async (req, res) => {
     try {
@@ -378,64 +380,94 @@ exports.createCustomFields = async (req, res) => {
     }
 }
 
+
 exports.moveCardAndCopy = async (req, res) => {
     try {
-        let id = req.params.id
+        const cardId = req.params.id;
+        const { targetListId, targetBoardId, newPosition, type = 'move', title } = req.body;
 
-        const { targetListId, newPosition, type = 'move' } = req.body
-
-        let originalCard = await card.findById(id)
-
+        const originalCard = await card.findById(cardId);
         if (!originalCard) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+            return res.status(404).json({ success: false, message: "Card not found" });
         }
 
-        await card.updateMany(
-            { listId: originalCard.listId, position: { $gt: originalCard.position } },
-            { $inc: { position: -1 } }
-        );
+        const sourceList = await List.findById(originalCard.listId);
+        const targetList = await List.findById(targetListId);
 
-        const cardData = originalCard.toObject();
+        if (!sourceList || !targetList) {
+            return res.status(404).json({ success: false, message: "Source or target list not found" });
+        }
 
-        delete cardData._id
-        delete cardData.createdAt;
-        delete cardData.updatedAt;
+        const sourceBoard = await Board.findById(sourceList.boardId);
+        const targetBoard = await Board.findById(targetList.boardId);
 
-        if (type === 'copy') {
-            const copiedCard = new card({
-                ...cardData,
-                listId: targetListId,
-                position: newPosition
-            });
-            await copiedCard.save();
+        if (!sourceBoard || !targetBoard) {
+            return res.status(404).json({ success: false, message: "Source or target board not found" });
+        }
 
+        if (sourceBoard.workSpaceId.toString() !== targetBoard.workSpaceId.toString()) {
+            return res.status(403).json({ success: false, message: "Cannot move/copy cards between different workspaces" });
+        }
+
+        if (type === 'move') {
             await card.updateMany(
-                { listId: targetListId, position: { $gte: newPosition } },
-                { $inc: { position: 1 } }
+                {
+                    listId: originalCard.listId,
+                    position: { $gt: originalCard.position }
+                },
+                { $inc: { position: -1 } }
             );
-
-            return res.status(201).json(copiedCard);
         }
-        const moveCard = await card.findByIdAndUpdate(
-            id, {
+
+        const cardData = {
+            ...originalCard.toObject(),
             listId: targetListId,
             position: newPosition,
-        }, {
-            new: true
-        })
+            title: title || originalCard.title
+        };
+
+        if (type === 'copy') {
+            delete cardData._id;
+            delete cardData.createdAt;
+            delete cardData.updatedAt;
+        }
 
         await card.updateMany(
-            { listId: targetListId, position: { $gte: newPosition } },
-            { inc: { position: 1 } }
-        )
+            {
+                listId: targetListId,
+                position: { $gte: newPosition }
+            },
+            { $inc: { position: 1 } }
+        );
 
-        return res.status(200).json({ status: 200, success: true, message: "card moved SuccessFully...", data: moveCard })
+        let resultCard;
+        if (type === 'copy') {
+
+            resultCard = await card.create(cardData);
+        } else {
+
+            resultCard = await card.findByIdAndUpdate(
+                cardId,
+                {
+                    listId: targetListId,
+                    position: newPosition,
+                    title: title || originalCard.title
+                },
+                { new: true }
+            );
+        }
+
+        return res.status(type === 'copy' ? 201 : 200).json({
+            success: true,
+            message: `Card ${type === 'copy' ? 'copied' : 'moved'} successfully`,
+            data: resultCard
+        });
 
     } catch (error) {
-        console.log(error)
-        return res.status(200).json({ status: 200, success: false, message: error.message })
+        console.error(error);
+        return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 exports.deleteCardDataById = async (req, res) => {
     try {

@@ -37,6 +37,10 @@ const cardSchema = mongoose.Schema({
         },
         color: {
             type: String
+        },
+        status: {
+            type: Boolean,
+            default: false
         }
     }],
     attachments: [{
