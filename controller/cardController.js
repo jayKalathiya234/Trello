@@ -179,7 +179,7 @@ exports.editLabelById = async (req, res) => {
     try {
         let id = req.params.id
 
-        let { labelName, color } = req.body
+        let { labelName, color, status } = req.body
 
         let updateCardId = await card.findOne({ 'label._id': id })
 
@@ -189,7 +189,7 @@ exports.editLabelById = async (req, res) => {
 
         updateCardId = await card.findOneAndUpdate(
             { 'label._id': id },
-            { $set: { 'label.$.data': labelName, 'label.$.color': color } },
+            { $set: { 'label.$.data': labelName, 'label.$.color': color, 'label.$.status': status } },
             { new: true }
         );
 
@@ -482,6 +482,26 @@ exports.deleteCardDataById = async (req, res) => {
         await card.findByIdAndDelete(id)
 
         return res.status(200).json({ status: 200, success: true, message: "Card Delete SuccessFully..." })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.updateCardData = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let updateCardDataId = await card.findById(id)
+
+        if (!updateCardDataId) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" })
+        }
+
+        updateCardDataId = await card.findByIdAndUpdate(id, { ...req.body }, { new: true })
+
+        return res.status(200).json({ status: 200, success: true, message: "Card Data Updated SuccessFully...", data: updateCardDataId })
 
     } catch (error) {
         console.log(error)
