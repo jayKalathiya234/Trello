@@ -51,7 +51,11 @@ const cardSchema = mongoose.Schema({
         image: [{
             type: String,
             require: true
-        }]
+        }],
+        status: {
+            type: Boolean,
+            default: false
+        }
     }],
     member: [{
         user: {

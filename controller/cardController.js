@@ -321,7 +321,7 @@ exports.setAttachementById = async (req, res) => {
 exports.updateSetAttachement = async (req, res) => {
     try {
         let id = req.params.id;
-        let { url, image } = req.body;
+        let { url, image, status } = req.body;
 
 
         let checkCardId = await card.findOne({ 'attachments._id': id });
@@ -342,6 +342,10 @@ exports.updateSetAttachement = async (req, res) => {
 
         if (req.files && req.files.image) {
             attachment.image = req.files.image.map(file => file.path);
+        }
+
+        if (status) {
+            attachment.status = status
         }
 
         checkCardId = await checkCardId.save();
