@@ -341,9 +341,9 @@ exports.updateSetAttachement = async (req, res) => {
             attachment.url = url;
         }
 
-        if (req.files && req.files.image) {
-            attachment.image = req.files.image.map(file => file.path);
-        }
+        // if (req.files && req.files.image) {
+        //     attachment.image = req.files.image.map(file => file.path);
+        // }
 
         if (status) {
             attachment.status = status
