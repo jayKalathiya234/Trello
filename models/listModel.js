@@ -17,6 +17,9 @@ const listScheam = mongoose.Schema({
     archived: {
         type: Boolean,
         default: false
+    },
+    color:{
+        type: String
     }
 }, {
     timestamps: true,

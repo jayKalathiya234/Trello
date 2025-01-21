@@ -4,8 +4,8 @@ const { loginUser, userGoggleLogin } = require('../auth/userLogin');
 const { createWorkSpace, getAllWorkSpace, getWorkSpaceById, updateWorkSpaceById, deleteWorkSpaceById, joinWorkSpaceUsingLink, getMyWorkSpace, removeMemberFromWorkSpace, updateMemberRoleById, workSpaceJoinInvitaionLingUsingEmail } = require('../controller/workSpaceController');
 const { auth } = require('../helper/auth');
 const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, updateBoardById, deleteBoardById, updateMemberRole, removeMemberFromBoard, getBoardByWorkSpaceId, getBoardJoinInvitaionLingUsingEmail, startedBoard, getAllStartedBoadr, setBoardCloseStatus, getAllCloseBoard, getAllBoardUserMembers } = require('../controller/boardController');
-const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard, getAllLists } = require('../controller/listController');
-const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById, updateSetAttachement, removeLableById, updateCardData } = require('../controller/cardController');
+const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard, getAllLists, copyListData, moveListData, archivedList } = require('../controller/listController');
+const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById, updateSetAttachement, removeLableById, updateCardData, getCardByList, moveAllCards, deleteAttachement, updateCustomFields, deleteCustomFields, getArchivedCard, archivedAllCardInList, archivedCardById, updateCheckList, createCheckList, deleteCheckList, createCover, updateCover, deleteCover } = require('../controller/cardController');
 const upload = require('../helper/imageUplode');
 const indexRoutes = express.Router();
 
@@ -62,6 +62,10 @@ indexRoutes.get('/getArchivedList/:id', auth, getArchivedListForBoard);
 indexRoutes.put('/updateList/:id', auth, updateListById);
 indexRoutes.delete('/deleteList/:id', auth, deleteListById);
 indexRoutes.get('/allLists/:id', auth, getAllLists);
+indexRoutes.post('/copyList/:id', auth, copyListData);
+indexRoutes.post('/moveList/:id', auth, moveListData);
+
+indexRoutes.put('/archivelists/:id', auth, archivedList)
 
 // card Routes
 
@@ -81,5 +85,22 @@ indexRoutes.post('/createCustomField/:id', auth, createCustomFields);
 indexRoutes.post('/moveCardAndCopy/:id', auth, moveCardAndCopy);
 indexRoutes.delete('/deleteCard/:id', auth, deleteCardDataById);
 indexRoutes.put('/updateCard/:id', auth, updateCardData);
+
+indexRoutes.get('/getCardByList/:listId', auth, getCardByList);
+indexRoutes.post('/moveAllCards', auth, moveAllCards);
+indexRoutes.delete('/deleteAttachments', auth, deleteAttachement);
+indexRoutes.put('/updateCustomField/:id', auth, updateCustomFields);
+indexRoutes.delete('/deleteCustomField/:id', auth, deleteCustomFields);
+indexRoutes.get('/getArchivedcard/:id', auth, getArchivedCard);
+indexRoutes.put('/archiveAllCardsList/:id', auth, archivedAllCardInList);
+indexRoutes.put('/archiveCardById/:id', auth, archivedCardById);
+indexRoutes.post('/createCheckList/:id', auth, createCheckList);
+indexRoutes.put('/updateCheckList/:id', auth, updateCheckList);
+indexRoutes.delete('/deleteCheckList/:id', auth, deleteCheckList);
+indexRoutes.post('/createCover/:id', auth, upload.fields([{ name: 'image' }]), createCover);
+indexRoutes.put('/updateCover/:id', auth, upload.fields([{ name: 'image' }]), updateCover);
+indexRoutes.delete('/deleteCover/:id',auth, deleteCover);
+
+
 
 module.exports = indexRoutes

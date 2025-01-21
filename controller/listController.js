@@ -4,7 +4,7 @@ const mongoose = require('mongoose')
 
 exports.createList = async (req, res) => {
     try {
-        let { boardId, title } = req.body
+        let { boardId, title, color } = req.body
 
         let checkExistList = await list.findOne({ boardId, title })
 
@@ -32,7 +32,8 @@ exports.createList = async (req, res) => {
         checkExistList = await list.create({
             boardId,
             title,
-            position
+            position,
+            color
         });
 
         return res.status(201).json({ status: 201, success: true, message: "List Create SuccessFully...", data: checkExistList })
@@ -110,7 +111,13 @@ exports.getAllListForBoard = async (req, res) => {
             return res.status(403).json({ status: 403, success: false, message: 'Not authorized to view lists in this board' });
         }
 
-        const lists = await list.find({ boardId: id, archived: false }).sort({ position: 1 }).populate('boardId');
+        const lists = await list.find({ boardId: id, archived: false }).sort({ position: 1 }).populate('boardId').populate({
+            path: 'boardId',
+            populate: {
+                path: 'members.user',
+                select: 'name email'
+            },
+        });
 
         return res.status(200).json({ status: 200, success: true, message: "All List Found SuccessFully...", data: lists })
 
@@ -180,7 +187,7 @@ exports.updateListById = async (req, res) => {
     try {
         let id = req.params.id
 
-        const { title, position, archived } = req.body;
+        const { title, position, archived, color } = req.body;
 
         const getList = await list.findById(id);
 
@@ -199,6 +206,7 @@ exports.updateListById = async (req, res) => {
         }
 
         if (title) getList.title = title;
+        if (color) getList.color = color;
         // if (description) getList.description = description;
         if (position !== undefined) getList.position = position;
         if (archived !== undefined) getList.archived = archived;
@@ -241,5 +249,153 @@ exports.deleteListById = async (req, res) => {
     } catch (error) {
         console.log(error)
         return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.copyListData = async (req, res) => {
+    try {
+        let id = req.params.id
+        let { title } = req.body
+
+        // Get the original list data
+        let getListData = await list.findById(id);
+
+        if (!getListData) {
+            return res.status(404).json({ status: 404, success: false, message: "List Not Found" });
+        }
+
+        // Check board membership
+        const boardData = await board.findById(getListData.boardId);
+        const isMember = boardData.members.some(
+            member => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({ status: 403, success: false, message: 'Not authorized to copy this list' });
+        }
+
+        // Get the highest position for the new list
+        const lastList = await list.findOne({ boardId: getListData.boardId }).sort({ position: -1 });
+        const position = lastList ? lastList.position + 1 : 1;
+
+        // Create new list with copied data
+        const copiedList = await list.create({
+            boardId: getListData.boardId,
+            title: title,
+            position: position,
+            archived: false
+        });
+
+        return res.status(201).json({
+            status: 201,
+            success: true,
+            message: 'List copied successfully',
+            data: copiedList
+        });
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.moveListData = async (req, res) => {
+    try {
+        let id = req.params.id
+        let { newPosition } = req.body;
+
+        // Find the list to be moved
+        const listToMove = await list.findById(id);
+        if (!listToMove) {
+            return res.status(404).json({ status: 404, success: false, message: "List not found" });
+        }
+
+        // Check board membership
+        const boardData = await board.findById(listToMove.boardId);
+        const isMember = boardData.members.some(
+            member => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({ status: 403, success: false, message: 'Not authorized to move this list' });
+        }
+
+        // Get all lists in the board to update positions
+        const allLists = await list.find({
+            boardId: listToMove.boardId,
+            archived: false
+        }).sort({ position: 1 });
+
+        // Update positions of affected lists
+        if (newPosition > listToMove.position) {
+            // Moving down: update positions of lists between old and new position
+            await list.updateMany(
+                {
+                    boardId: listToMove.boardId,
+                    position: { $gt: listToMove.position, $lte: newPosition }
+                },
+                { $inc: { position: -1 } }
+            );
+        } else if (newPosition < listToMove.position) {
+            // Moving up: update positions of lists between new and old position
+            await list.updateMany(
+                {
+                    boardId: listToMove.boardId,
+                    position: { $gte: newPosition, $lt: listToMove.position }
+                },
+                { $inc: { position: 1 } }
+            );
+        }
+
+        // Update position of the moved list
+        listToMove.position = newPosition;
+        await listToMove.save();
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "List position updated successfully",
+            data: listToMove
+        });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.archivedList = async (req, res) => {
+    try {
+        let id = req.params.id;
+        let { archived } = req.body;
+
+        // Find the list to be archived
+        const listToArchive = await list.findById(id);
+        if (!listToArchive) {
+            return res.status(404).json({ status: 404, success: false, message: "List Not Found" });
+        }
+
+        // Check board membership
+        const boardData = await board.findById(listToArchive.boardId);
+        const isMember = boardData.members.some(
+            member => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({ status: 403, success: false, message: 'Not authorized to archive this list' });
+        }
+
+        // Archive the list
+        listToArchive.archived = archived;
+        await listToArchive.save();
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'List archived successfully',
+            data: listToArchive
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }

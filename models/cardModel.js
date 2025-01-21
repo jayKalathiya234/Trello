@@ -14,6 +14,10 @@ const cardSchema = mongoose.Schema({
         type: String,
         require: true
     },
+    archived: {
+        type: Boolean,
+        default: false
+    },
     startDate: {
         type: String,
         require: true
@@ -24,8 +28,6 @@ const cardSchema = mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['todo', 'in-progress', 'done'],
-        default: 'todo'
     },
     position: {
         type: Number,
@@ -66,7 +68,32 @@ const cardSchema = mongoose.Schema({
     customFields: {
         type: mongoose.Schema.Types.Mixed,
         require: true
-    }
+    },
+    cover: [{
+        image:[{
+            type: String,
+            require: true
+        }],
+        color: {
+            type: String,
+        },
+        size:{
+            type: String,
+            // require: true
+        }
+    }],
+    checkList: [
+        {
+            text: {
+                type: String,
+                require: true
+            },
+            completed: {
+                type: Boolean,
+                default: false
+            }
+        }
+    ]
 }, {
     timestamps: true,
     versionKey: false

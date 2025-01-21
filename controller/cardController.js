@@ -4,7 +4,7 @@ const Board = require('../models/boardModels')
 
 exports.createCard = async (req, res) => {
     try {
-        let { listId, title, description, dueDate, status, position, label, attachments, comments, customFields } = req.body
+        let { listId, title, description, dueDate, status, position, label, attachments, comments, customFields, checkList } = req.body
 
         const staticLabels = [
             { data: null, color: '#5E4DB2' },
@@ -37,7 +37,8 @@ exports.createCard = async (req, res) => {
             label,
             attachments,
             comments,
-            customFields
+            customFields,
+            checkList
         })
 
         return res.status(201).json({ status: 201, success: true, message: "Card Created SuccessFully...", data: checkCardIsExist })
@@ -358,6 +359,35 @@ exports.updateSetAttachement = async (req, res) => {
     }
 };
 
+exports.deleteAttachement = async (req, res) => {
+    try {
+        let { cardId, attachmentId } = req.body;
+
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Use $pull to remove the attachment
+        cardData = await card.findByIdAndUpdate(
+            cardId,
+            { $pull: { attachments: { _id: attachmentId } } },
+            { new: true }
+        );
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Attachment Not Found" });
+        }
+
+        return res.status(200).json({ status: 200, success: true, message: "Attachment Deleted Successfully", data: cardData });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+};
+
 exports.createCustomFields = async (req, res) => {
     try {
         let id = req.params.id
@@ -384,6 +414,55 @@ exports.createCustomFields = async (req, res) => {
     }
 }
 
+exports.updateCustomFields = async (req, res) => {
+    try {
+        let id = req.params.id;
+        const { customFieldName, customFieldValue } = req.body;
+
+        let checkCardDataId = await card.findById(id);
+
+        if (!checkCardDataId) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        checkCardDataId = await card.findByIdAndUpdate(
+            id,
+            { $set: { [`customFields.${customFieldName}`]: customFieldValue } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "Custom Field Updated Successfully", data: checkCardDataId });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.deleteCustomFields = async (req, res) => {
+    try {
+        let id = req.params.id;
+        const { customFieldName } = req.body;
+
+        let checkCardDataId = await card.findById(id);
+
+        if (!checkCardDataId) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        checkCardDataId = await card.findByIdAndUpdate(
+            id,
+            { $unset: { [`customFields.${customFieldName}`]: "" } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "Custom Field Deleted Successfully", data: checkCardDataId });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
 
 exports.moveCardAndCopy = async (req, res) => {
     try {
@@ -510,5 +589,343 @@ exports.updateCardData = async (req, res) => {
     } catch (error) {
         console.log(error)
         return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.getCardByList = async (req, res) => {
+    try {
+        let listId = req.params.listId;
+
+        let cards = await card.find({ listId }).populate('listId').populate('member.user');
+
+        if (cards.length === 0) {
+            return res.status(404).json({ status: 404, success: false, message: "No cards found for this list" });
+        }
+
+        return res.status(200).json({ status: 200, success: true, message: "Cards retrieved successfully", data: cards });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.moveAllCards = async (req, res) => {
+    try {
+        const { sourceListId, targetListId } = req.body;
+
+        // Find all cards in the source list
+        const cards = await card.find({ listId: sourceListId });
+
+        if (cards.length === 0) {
+            return res.status(404).json({ status: 404, success: false, message: "No cards found in the source list" });
+        }
+
+        // Update each card to the target list
+        await card.updateMany(
+            { listId: sourceListId },
+            { $set: { listId: targetListId } }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "All cards moved successfully", data: cards });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.getArchivedCard = async (req, res) => {
+    try {
+        let boardId = req.params.id;
+
+        let checkBoardId = await Board.findById(boardId);
+
+        if (!checkBoardId) {
+            return res.status(404).json({ status: 404, success: false, message: "Board not found" });
+        }
+
+        let isMemberAuthorized = checkBoardId.members.some(
+            member => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMemberAuthorized) {
+            return res.status(403).json({ status: 403, success: false, message: "Not authorized to view archived cards in this board" });
+        }
+
+        // Find all lists associated with the board
+        const lists = await List.find({ boardId: boardId });
+
+        if (lists.length === 0) {
+            return res.status(404).json({ status: 404, success: false, message: "No lists found for this board" });
+        }
+
+        // Find archived cards in these lists
+        const archivedCards = await card.find({ listId: { $in: lists.map(list => list._id) }, archived: true })
+            .sort({ updatedAt: -1 })
+            .populate('listId');
+
+        return res.status(200).json({ status: 200, success: true, message: "Archived cards found successfully", data: archivedCards });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: "An error occurred while retrieving archived cards" });
+    }
+}
+
+exports.archivedAllCardInList = async (req, res) => {
+    try {
+        const listId = req.params.id;
+        const { archived } = req.body;
+
+        // Find all cards in the specified list
+        const cards = await card.find({ listId });
+        console.log(cards)
+
+        if (cards.length === 0) {
+            return res.status(404).json({ status: 404, success: false, message: "No cards found in the specified list" });
+        }
+
+        // Update all cards in the list to set archived to true, ensuring listId is preserved
+        const updateResult = await card.updateMany(
+            { listId: listId },
+            { $set: { archived: archived } }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+            return res.status(500).json({ status: 500, success: false, message: "Failed to archive cards" });
+        }
+
+
+        return res.status(200).json({ status: 200, success: true, message: "All cards in the list archived successfully" });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+exports.archivedCardById = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { archived } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Update the archived status of the card
+        cardData = await card.findByIdAndUpdate(
+            cardId,
+            { $set: { archived: archived } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "Card archived status updated successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.createCheckList = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { text, completed = false } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Add the new checklist item
+        const newChecklistItem = { text, completed };
+        cardData.checkList.push(newChecklistItem);
+
+        // Save the updated card
+        await cardData.save();
+
+        return res.status(201).json({ status: 201, success: true, message: "Checklist item created successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.updateCheckList = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { checklistId, text, completed } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Find the checklist by ID within the card
+        let checklist = cardData.checkList.id(checklistId);
+
+        if (!checklist) {
+            return res.status(404).json({ status: 404, success: false, message: "Checklist Not Found" });
+        }
+        console.log(completed)
+
+        // Update the checklist items
+        if (text !== undefined) checklist.text = text;
+        if (completed !== undefined) checklist.completed = completed;
+
+        // Save the updated card
+        await cardData.save();
+
+        return res.status(200).json({ status: 200, success: true, message: "Checklist updated successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+exports.deleteCheckList = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { checklistId } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Use $pull to remove the checklist item by ID
+        cardData = await card.findByIdAndUpdate(
+            cardId,
+            { $pull: { checkList: { _id: checklistId } } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "Checklist item deleted successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+exports.createCover = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { color, size } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Prepare the new cover object
+        const newCover = {};
+        if (req.files && req.files.image) {
+            newCover.image = req.files.image.map(file => file.path);
+        }
+        if (color) {
+            newCover.color = color;
+        }
+        if (size) {
+            newCover.size = size;
+        }
+
+        // Update the card with the new cover
+        cardData = await card.findByIdAndUpdate(
+            cardId,
+            { $push: { cover: newCover } }, // Use $push to add to the array
+            { new: true }
+        );
+        console.log(cardData)
+        return res.status(200).json({ status: 200, success: true, message: "Cover created successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+exports.updateCover = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { coverId, color, size } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Find the cover by ID within the card
+        let cover = cardData.cover.id(coverId);
+
+        if (!cover) {
+            return res.status(404).json({ status: 404, success: false, message: "Cover Not Found" });
+        }
+
+        // Update the cover fields
+        if (req.files && req.files.image) {
+            cover.image = req.files.image.map(file => file.path);
+        }
+        if (color) {
+            cover.color = color;
+        }
+        if (size) {
+            cover.size = size;
+        }
+
+        // Save the updated card
+        await cardData.save();
+
+        return res.status(200).json({ status: 200, success: true, message: "Cover updated successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+exports.deleteCover = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { coverId } = req.body;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Check if the cover exists
+        
+        const coverExists = cardData.cover.some(cover => cover._id.toString() === coverId);
+        if (!coverExists) {
+            return res.status(404).json({ status: 404, success: false, message: "Cover Not Found" });
+        }
+
+        // Use $pull to remove the cover by ID
+        cardData = await card.findByIdAndUpdate(
+            cardId,
+            { $pull: { cover: { _id: coverId } } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "Cover deleted successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
