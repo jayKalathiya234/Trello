@@ -100,7 +100,7 @@ exports.updateBoardById = async (req, res) => {
     try {
         let id = req.params.id
 
-        const { title, visibility } = req.body;
+        const { title, visibility, color} = req.body;
 
         const Board = await board.findById(id);
 
@@ -118,6 +118,7 @@ exports.updateBoardById = async (req, res) => {
 
         Board.title = title || Board.title;
         Board.visibility = visibility || Board.visibility;
+        Board.color = color || Board.color;
 
         await Board.save();
 

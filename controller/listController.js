@@ -283,7 +283,8 @@ exports.copyListData = async (req, res) => {
             boardId: getListData.boardId,
             title: title,
             position: position,
-            archived: false
+            archived: false,
+            color:getListData.color
         });
 
         // Copy all cards from the original list
@@ -298,6 +299,7 @@ exports.copyListData = async (req, res) => {
                 dueDate: card.dueDate,
                 labels: card.labels,
                 members: card.members,
+                color: card.color,
                 archived: false
             });
         });
