@@ -2,7 +2,7 @@ const card = require('../models/cardModel')
 const List = require('../models/listModel')
 const Board = require('../models/boardModels')
 const { default: mongoose } = require('mongoose')
-
+const customfield = require('../models/CustomFieldModel')
 exports.createCard = async (req, res) => {
     try {
         let { listId, title, description, dueDate,color, status, position, attachments, comments, customFields, checkList } = req.body
@@ -813,6 +813,31 @@ exports.deleteCheckList = async (req, res) => {
         return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
+exports.deleteAllCheckList = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Use $set to clear the checkList array
+        cardData = await card.findByIdAndUpdate(
+            cardId,
+            { $set: { checkList: [] } }, // Clear all checklist items
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "All checklist items deleted successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
 exports.createCover = async (req, res) => {
     try {
         const cardId = req.params.id;
@@ -873,9 +898,10 @@ exports.updateCover = async (req, res) => {
         // Update the cover fields
         if (req.files && req.files.image) {
             cover.image = req.files.image.map(file => file.path);
-        }
-        if (color) {
+            cover.color = null; // Reset color when image is provided
+        } else if (color) {
             cover.color = color;
+            cover.image = null; // Reset image when color is provided
         }
         if (size) {
             cover.size = size;
@@ -1032,3 +1058,93 @@ exports.updateLabelId = async (req, res) => {
         return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
+exports.updateCardCustomFields = async (req, res) => {
+    try {
+        const { cardId, fieldId, selectedOptionIds } = req.body;
+
+        // Validate required fields
+        if (!cardId || !fieldId || !selectedOptionIds) {
+            return res.status(400).json({
+                success: false,
+                message: 'cardId, fieldId, and selectedOptionIds are required'
+            });
+        }
+        const optionsArray = Array.isArray(selectedOptionIds) ? selectedOptionIds : [selectedOptionIds];
+
+        // Find the card first
+        let cardData = await card.findById(cardId);
+        
+        if (!cardData) {
+            return res.status(404).json({
+                success: false,
+                message: 'Card not found'
+            });
+        }
+
+        // Initialize customFields array if it doesn't exist
+        if (!cardData.customFields) {
+            cardData.customFields = [];
+        }
+
+        // Find or create the custom field entry
+        let customFieldIndex = cardData.customFields.findIndex(cf => 
+            cf.fieldId && cf.fieldId.toString() === fieldId
+        );
+
+        if (customFieldIndex !== -1) {
+            // Update existing entry
+            cardData.customFields[customFieldIndex].selectedOptions = optionsArray;
+        } else {
+            // Create new entry
+            cardData.customFields.push({
+                fieldId: fieldId,
+                selectedOptions: optionsArray
+            });
+        }
+
+        // Save the updated card
+        await cardData.save();
+
+        // Aggregation to get custom field data with selected options
+        const customFields = await customfield.aggregate([
+            {
+                $unwind: "$field"
+            },
+            {
+                $unwind: "$field.fieldOptions"
+            },
+            {
+                $match: {
+                    "field.fieldOptions._id": { $in: optionsArray.map(id => new mongoose.Types.ObjectId(id)) }
+                }
+            },
+            {
+                $group: {
+                    _id: "$field._id",
+                    fieldLabel: { $first: "$field.fieldLabel" },
+                    fieldType: { $first: "$field.fieldType" },
+                    fieldShown: { $first: "$field.fieldShown" },
+                    fieldOptions: { $push: "$field.fieldOptions" }
+                }
+            }
+        ]);
+        console.log(customFields);
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Card custom fields updated successfully',
+            data: {
+                cardData,
+                customFields
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error updating card custom fields',
+            error: error.message
+        });
+    }
+};

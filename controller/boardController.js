@@ -1,10 +1,13 @@
 const board = require('../models/boardModels')
 const nodemailer = require('nodemailer')
 const crypto = require('crypto');
+const customfield = require('../models/CustomFieldModel');
+const List = require('../models/listModel');
+const Card = require('../models/cardModel');
 
 exports.createBoard = async (req, res) => {
     try {
-        let { workSpaceId, title, visibility, label, members, invitationLink, color } = req.body;
+        let { workSpaceId, title, visibility, label, members, invitationLink, color, } = req.body;
 
         const staticLabels = [
             { data: null, color: '#5E4DB2' },
@@ -17,10 +20,60 @@ exports.createBoard = async (req, res) => {
             label = staticLabels;
         }
 
+        // Define static custom fields
+        const staticCustomFields = [
+            {
+                fieldLabel: "Status",
+                fieldType: "dropdown",
+                fieldOptions: [
+                    { color: "#702e00", text: "To do" },
+                    { color: "#164555", text: "In progress" },
+                    { color: "#09326c", text: "In review" },
+                    { color: "#50253f", text: "Done" },
+                    { color: "#352c63", text: "Approved" },
+                    { color: "#323940", text: "Not sure" }
+                ]
+            },
+            {
+                fieldLabel: "Priority",
+                fieldType: "dropdown",
+                fieldOptions: [
+                    { color: "#5d1f1a", text: "Highest" },
+                    { color: "#702e00", text: "High" },
+                    { color: "#533f04", text: "Medium" },
+                    { color: "#164555", text: "Low" },
+                    { color: "#09326c", text: "Lowest" },
+                    { color: "#323940", text: "Not sure" },
+                ]
+            },
+            {
+                fieldLabel: "Risk",
+                fieldType: "dropdown",
+                fieldOptions: [
+                    { color: "#5d1f1a", text: "Highest" },
+                    { color: "#702e00", text: "High" },
+                    { color: "#533f04", text: "Medium" },
+                    { color: "#164555", text: "Low" },
+                    { color: "#09326c", text: "Lowest" },
+                    { color: "#323940", text: "Not sure" },
+                ]
+            },
+            {
+                fieldLabel: "Efforts",
+                fieldType: "number",
+                fieldOptions: [
+
+                ]
+            }
+        ];
+
+        // Use provided fields or fallback to static fields
+        field = staticCustomFields;
+
         let checkExistWorkSpaceId = await board.findOne({ workSpaceId, title })
 
         if (checkExistWorkSpaceId) {
-            return res.status(409).json({ status: 409, success: false, message: "Board Alredy Exist...." })
+            return res.status(409).json({ status: 409, success: false, message: "Board Already Exists...." })
         }
 
         invitationLink = crypto.randomBytes(10).toString('hex');
@@ -36,8 +89,16 @@ exports.createBoard = async (req, res) => {
             invitationLink,
             color
         })
+        const newCustomField = await customfield.create({
+            boardId: checkExistWorkSpaceId._id,
+            field
+        });
+        const responseData = {
+            ...checkExistWorkSpaceId.toObject(),
+            customFields: newCustomField
+        };
 
-        return res.status(201).json({ status: 201, success: true, message: "Board Create SuccessFully...", data: checkExistWorkSpaceId });
+        return res.status(201).json({ status: 201, success: true, message: "Board Created Successfully...", data: responseData });
 
     } catch (error) {
         console.log(error)
@@ -88,7 +149,16 @@ exports.getBorderById = async (req, res) => {
             return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
         }
 
-        return res.status(200).json({ status: 200, success: true, message: "Board Found SuccessFully...", data: getBoardId });
+        // Fetch custom fields for this board
+        const customFields = await customfield.findOne({ boardId: id })
+
+        // Combine board data with custom fields
+        const responseData = {
+            ...getBoardId.toObject(),
+            customFields
+        }
+
+        return res.status(200).json({ status: 200, success: true, message: "Board Found SuccessFully...", data: responseData });
 
     } catch (error) {
         console.log(error)
@@ -541,30 +611,30 @@ exports.getAllBoardLabel = async (req, res) => {
     }
 }
 exports.createBoardLabel = async (req, res) => {
-   
-        try {
-            let id = req.params.id
-    
-            let { labelName, color } = req.body
-    
-            let checkCardId = await board.findById(id)
-    
-            if (!checkCardId) {
-                return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
-            }
-    
-            checkCardId = await board.findByIdAndUpdate(
-                id,
-                { $push: { label: { data: labelName, color: color } } },
-                { new: true }
-            );
-    
-            return res.status(200).json({ status: 200, success: true, message: "label Added SuccessFully...", data: checkCardId })
-    
-        } catch (error) {
-            console.log(error)
-            return res.status(500).json({ status: 500, success: false, message: error.message })
+
+    try {
+        let id = req.params.id
+
+        let { labelName, color } = req.body
+
+        let checkCardId = await board.findById(id)
+
+        if (!checkCardId) {
+            return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
         }
+
+        checkCardId = await board.findByIdAndUpdate(
+            id,
+            { $push: { label: { data: labelName, color: color } } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "label Added SuccessFully...", data: checkCardId })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
 }
 exports.updateBoardLabel = async (req, res) => {
     try {
@@ -613,5 +683,78 @@ exports.deleteBoardLabel = async (req, res) => {
     } catch (error) {
         console.log(error)
         return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+exports.copyBoard = async (req, res) => {
+    try {
+        let id = req.params.id;
+
+        // Get new title and workspace ID from the request body
+        const { newTitle, newWorkSpaceId } = req.body; // New inputs from user
+
+        // Find the original board
+        const originalBoard = await board.findById(id);
+
+        if (!originalBoard) {
+            return res.status(404).json({ status: 404, success: false, message: "Board Not Found" });
+        }
+
+        // Create a new board with the same properties but new title and workspace ID
+        const newBoard = await board.create({
+            workSpaceId: newWorkSpaceId || originalBoard.workSpaceId, // Use new workspace ID or fallback to original
+            title: newTitle || `${originalBoard.title} (Copy)`, // Use new title or fallback to original with "(Copy)"
+            visibility: originalBoard.visibility,
+            label: originalBoard.label,
+            members: originalBoard.members,
+            invitationLink: originalBoard.invitationLink,
+            color: originalBoard.color,
+        });
+
+        // Fetch lists associated with the original board
+        const originalLists = await List.find({ boardId: originalBoard._id });
+
+        // Copy lists associated with the original board
+        const listsToCopy = originalLists.map(list => ({
+            boardId: newBoard._id, // Associate new lists with the new board
+            title: list.title,
+            position: list.position,
+            archived: list.archived,
+            color: list.color,
+        }));
+
+        // Insert new lists into the database
+        const newLists = await List.insertMany(listsToCopy);
+
+        // Copy cards for each list
+        for (const originalList of originalLists) {
+            const cards = await Card.find({ listId: originalList._id });
+
+            const cardsToCopy = cards.map(card => ({
+                listId: newLists.find(newList => newList.title === originalList.title)._id, // Associate new cards with the new list
+                title: card.title,
+                description: card.description,
+                archived: card.archived,
+                color: card.color,
+                startDate: card.startDate,
+                dueDate: card.dueDate,
+                status: card.status,
+                position: card.position,
+                label: card.label,
+                attachments: card.attachments,
+                member: card.member,
+                customFields: card.customFields,
+                cover: card.cover,
+                checkList: card.checkList,
+            }));
+
+            // Insert new cards into the database
+            await Card.insertMany(cardsToCopy);
+        }
+
+        return res.status(201).json({ status: 201, success: true, message: "Board copied successfully", data: newBoard });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }

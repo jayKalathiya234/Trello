@@ -40,8 +40,7 @@ const cardSchema = mongoose.Schema({
         labelId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'board',
-        },
-       
+        },       
     }],
     attachments: [{
         url: {
@@ -66,10 +65,15 @@ const cardSchema = mongoose.Schema({
             ref: 'user'
         }
     }],
-    customFields: {
-        type: mongoose.Schema.Types.Mixed,
-        require: true
-    },
+    customFields: [{
+        fieldId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'customfield'
+        },
+        selectedOptions: [{
+            type: mongoose.Schema.Types.ObjectId
+        }]
+    }],
     cover: [{
         image:[{
             type: String,
