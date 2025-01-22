@@ -34,16 +34,11 @@ const cardSchema = mongoose.Schema({
         require: true
     },
     label: [{
-        data: {
-            type: String
+        labelId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'board',
         },
-        color: {
-            type: String
-        },
-        status: {
-            type: Boolean,
-            default: false
-        }
+       
     }],
     attachments: [{
         url: {

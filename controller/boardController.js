@@ -4,7 +4,18 @@ const crypto = require('crypto');
 
 exports.createBoard = async (req, res) => {
     try {
-        let { workSpaceId, title, visibility, members, invitationLink, color } = req.body
+        let { workSpaceId, title, visibility, label, members, invitationLink, color } = req.body;
+
+        const staticLabels = [
+            { data: null, color: '#5E4DB2' },
+            { data: null, color: '#7F5F01' },
+            { data: null, color: '#206A83' },
+            { data: null, color: '#6CC3E0' },
+            { data: null, color: '#8C9BAB' },
+        ];
+        if (!label || label.length === 0) {
+            label = staticLabels;
+        }
 
         let checkExistWorkSpaceId = await board.findOne({ workSpaceId, title })
 
@@ -18,6 +29,7 @@ exports.createBoard = async (req, res) => {
             workSpaceId,
             title,
             visibility,
+            label,
             members: [
                 { user: req.user._id, role: 'admin' }
             ],
@@ -503,6 +515,100 @@ exports.getAllCloseBoard = async (req, res) => {
         }
 
         return res.status(200).json({ status: 200, count: allCloseBoard.length, success: true, message: "All Close Board Data Found SuccessFully...", data: allCloseBoard })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+
+exports.getAllBoardLabel = async (req, res) => {
+    try {
+        let id = req.params.id;
+
+        let boardData = await board.findById(id);
+
+        if (!boardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Board Not Found" });
+        }
+
+        return res.status(200).json({ status: 200, success: true, message: "Board labels retrieved successfully", labels: boardData.label });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+exports.createBoardLabel = async (req, res) => {
+   
+        try {
+            let id = req.params.id
+    
+            let { labelName, color } = req.body
+    
+            let checkCardId = await board.findById(id)
+    
+            if (!checkCardId) {
+                return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
+            }
+    
+            checkCardId = await board.findByIdAndUpdate(
+                id,
+                { $push: { label: { data: labelName, color: color } } },
+                { new: true }
+            );
+    
+            return res.status(200).json({ status: 200, success: true, message: "label Added SuccessFully...", data: checkCardId })
+    
+        } catch (error) {
+            console.log(error)
+            return res.status(500).json({ status: 500, success: false, message: error.message })
+        }
+}
+exports.updateBoardLabel = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let { labelName, color, status } = req.body
+
+        let updateCardId = await board.findOne({ 'label._id': id })
+
+        if (!updateCardId) {
+            return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
+        }
+
+        updateCardId = await board.findOneAndUpdate(
+            { 'label._id': id },
+            { $set: { 'label.$.data': labelName, 'label.$.color': color, 'label.$.status': status } },
+            { new: true }
+        );
+
+        return res.status(200).json({ status: 200, success: true, message: "label Edited SuccessFully...", data: updateCardId });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message })
+    }
+}
+
+exports.deleteBoardLabel = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let getLableDataId = await board.findOne({ "label._id": id })
+
+        if (!getLableDataId) {
+            return res.status(404).json({ status: 404, success: false, message: "Label Not Found" })
+        }
+
+        getLableDataId = await board.findOneAndUpdate(
+            { "label._id": id },
+            { $pull: { label: { _id: id } } },
+            { new: true }
+        )
+
+        return res.status(200).json({ status: 200, success: true, message: "Label Remove SuccessFully..." })
 
     } catch (error) {
         console.log(error)

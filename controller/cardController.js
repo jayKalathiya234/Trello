@@ -1,23 +1,15 @@
 const card = require('../models/cardModel')
 const List = require('../models/listModel')
 const Board = require('../models/boardModels')
+const { default: mongoose } = require('mongoose')
 
 exports.createCard = async (req, res) => {
     try {
-        let { listId, title, description, dueDate, status, position, label, attachments, comments, customFields, checkList } = req.body
+        let { listId, title, description, dueDate, status, position, attachments, comments, customFields, checkList } = req.body
 
-        const staticLabels = [
-            { data: null, color: '#5E4DB2' },
-            { data: null, color: '#7F5F01' },
-            { data: null, color: '#206A83' },
-            { data: null, color: '#6CC3E0' },
-            { data: null, color: '#8C9BAB' },
-        ];
+      
 
-        if (!label || label.length === 0) {
-            label = staticLabels;
-        }
-
+       
         let checkCardIsExist = await card.findOne({ title })
 
         if (checkCardIsExist) {
@@ -33,8 +25,7 @@ exports.createCard = async (req, res) => {
             description,
             dueDate,
             status,
-            position: position || newPosition,
-            label,
+            position: position || newPosition,           
             attachments,
             comments,
             customFields,
@@ -923,6 +914,114 @@ exports.deleteCover = async (req, res) => {
         );
 
         return res.status(200).json({ status: 200, success: true, message: "Cover deleted successfully", data: cardData });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
+    }
+}
+
+exports.updateLabelId = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const labelUpdates = req.body.labelUpdates; // Array of new labelIds
+
+        // Find the card by ID
+        let cardData = await card.findById(cardId);
+
+        if (!cardData) {
+            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+        }
+
+        // Clear existing labels
+        cardData.label = [];
+
+        // Add new labels from the labelUpdates array
+        labelUpdates.forEach(labelId => {
+            cardData.label.push({ 
+                labelId: new mongoose.Types.ObjectId(labelId) 
+            });
+        });
+
+        // Save the updated card
+        await cardData.save();
+        
+        
+        cardData = await card.aggregate([
+            {
+                $match: { _id: new mongoose.Types.ObjectId(cardId) }
+            },
+            {
+                $lookup: {
+                    from: 'boards',
+                    let: { labelIds: '$label.labelId' },
+                    pipeline: [
+                        {
+                            $unwind: '$label'
+                        },
+                        {
+                            $match: {
+                                $expr: {
+                                    $in: ['$label._id', '$$labelIds']
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                'label._id': 1,
+                                'label.data': 1,
+                                'label.color': 1,
+                                'label.status': 1
+                            }
+                        }
+                    ],
+                    as: 'labelInfo'
+                }
+            },
+            {
+                $addFields: {
+                    labelInfo: {
+                        $map: {
+                            input: '$label',
+                            as: 'lbl',
+                            in: {
+                                $arrayElemAt: [
+                                    {
+                                        $filter: {
+                                            input: '$labelInfo',
+                                            cond: { 
+                                                $eq: ['$$this.label._id', '$$lbl.labelId']
+                                            }
+                                        }
+                                    },
+                                    0
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+
+        ])
+        // .findById(cardId).populate({
+        //     path: 'label.labelId',
+        //     select: 'data color' // Select the fields you want from the label
+        // });
+        // const data = await Board.find({"label._id": labelUpdates})
+
+        // const labelInfo = Board.label.map(label => ({
+        //     _id: label._id,
+        //     data: label.data,
+        //     color: label.color
+        // }));
+        
+        
+        return res.status(200).json({ 
+            status: 200, 
+            success: true, 
+            message: "Labels updated successfully", 
+            data: cardData 
+        });
 
     } catch (error) {
         console.error(error);

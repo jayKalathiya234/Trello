@@ -29,6 +29,18 @@ const boardSchema = mongoose.Schema({
     invitationLink: {
         type: String
     },
+    label: [{
+        data: {
+            type: String
+        },
+        color: {
+            type: String
+        },
+        status: {
+            type: Boolean,
+            default: false
+        }
+    }],
     color: {
         type: String
     },
@@ -45,4 +57,4 @@ const boardSchema = mongoose.Schema({
     versionKey: false
 });
 
-module.exports = mongoose.model('board', boardSchema)
+module.exports = mongoose.model('board', boardSchema)   
