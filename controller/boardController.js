@@ -710,6 +710,15 @@ exports.copyBoard = async (req, res) => {
             color: originalBoard.color,
         });
 
+        // Copy custom fields associated with the original board
+        const originalCustomFields = await customfield.findOne({ boardId: originalBoard._id });
+        if (originalCustomFields) {
+            await customfield.create({
+                boardId: newBoard._id,
+                field: originalCustomFields.field
+            });
+        }
+
         // Fetch lists associated with the original board
         const originalLists = await List.find({ boardId: originalBoard._id });
 
