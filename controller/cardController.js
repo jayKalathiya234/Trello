@@ -5,7 +5,7 @@ const { default: mongoose } = require('mongoose')
 
 exports.createCard = async (req, res) => {
     try {
-        let { listId, title, description, dueDate, status, position, attachments, comments, customFields, checkList } = req.body
+        let { listId, title, description, dueDate,color, status, position, attachments, comments, customFields, checkList } = req.body
 
 
 
@@ -29,7 +29,8 @@ exports.createCard = async (req, res) => {
             attachments,
             comments,
             customFields,
-            checkList
+            checkList,
+            color
         })
 
         return res.status(201).json({ status: 201, success: true, message: "Card Created SuccessFully...", data: checkCardIsExist })
