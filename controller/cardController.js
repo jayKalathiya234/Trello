@@ -7,9 +7,9 @@ exports.createCard = async (req, res) => {
     try {
         let { listId, title, description, dueDate, status, position, attachments, comments, customFields, checkList } = req.body
 
-      
 
-       
+
+
         let checkCardIsExist = await card.findOne({ title })
 
         if (checkCardIsExist) {
@@ -25,7 +25,7 @@ exports.createCard = async (req, res) => {
             description,
             dueDate,
             status,
-            position: position || newPosition,           
+            position: position || newPosition,
             attachments,
             comments,
             customFields,
@@ -283,7 +283,7 @@ exports.setAttachementById = async (req, res) => {
     try {
         let id = req.params.id
 
-        let { url } = req.body
+        let { url, title } = req.body
 
         let checkCardId = await card.findById(id)
 
@@ -293,7 +293,8 @@ exports.setAttachementById = async (req, res) => {
 
         const attachment = {
             url: url || req.body.url,
-            image: req.files && req.files.image ? req.files.image.map(file => file.path) : undefined
+            image: req.files && req.files.image ? req.files.image.map(file => file.path) : undefined,
+            title
         };
 
         checkCardId = await card.findByIdAndUpdate(
@@ -313,7 +314,7 @@ exports.setAttachementById = async (req, res) => {
 exports.updateSetAttachement = async (req, res) => {
     try {
         let id = req.params.id;
-        let { url, image, status } = req.body;
+        let { url, image, status, title } = req.body;
 
 
         let checkCardId = await card.findOne({ 'attachments._id': id });
@@ -339,7 +340,9 @@ exports.updateSetAttachement = async (req, res) => {
         if (status) {
             attachment.status = status
         }
-
+        if (title) {
+            attachment.title = title;
+        }
         checkCardId = await checkCardId.save();
 
         return res.status(200).json({ status: 200, success: true, message: "Attachment Updated Successfully", data: checkCardId });
@@ -900,7 +903,7 @@ exports.deleteCover = async (req, res) => {
         }
 
         // Check if the cover exists
-        
+
         const coverExists = cardData.cover.some(cover => cover._id.toString() === coverId);
         if (!coverExists) {
             return res.status(404).json({ status: 404, success: false, message: "Cover Not Found" });
@@ -938,15 +941,15 @@ exports.updateLabelId = async (req, res) => {
 
         // Add new labels from the labelUpdates array
         labelUpdates.forEach(labelId => {
-            cardData.label.push({ 
-                labelId: new mongoose.Types.ObjectId(labelId) 
+            cardData.label.push({
+                labelId: new mongoose.Types.ObjectId(labelId)
             });
         });
 
         // Save the updated card
         await cardData.save();
-        
-        
+
+
         cardData = await card.aggregate([
             {
                 $match: { _id: new mongoose.Types.ObjectId(cardId) }
@@ -989,7 +992,7 @@ exports.updateLabelId = async (req, res) => {
                                     {
                                         $filter: {
                                             input: '$labelInfo',
-                                            cond: { 
+                                            cond: {
                                                 $eq: ['$$this.label._id', '$$lbl.labelId']
                                             }
                                         }
@@ -1014,13 +1017,13 @@ exports.updateLabelId = async (req, res) => {
         //     data: label.data,
         //     color: label.color
         // }));
-        
-        
-        return res.status(200).json({ 
-            status: 200, 
-            success: true, 
-            message: "Labels updated successfully", 
-            data: cardData 
+
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Labels updated successfully",
+            data: cardData
         });
 
     } catch (error) {
