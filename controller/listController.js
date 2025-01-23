@@ -60,7 +60,8 @@ exports.getAllLists = async (req, res) => {
         paginatedListData = await list.aggregate([
             {
                 $match: {
-                    boardId: new mongoose.Types.ObjectId(id)
+                    boardId: new mongoose.Types.ObjectId(id),
+                    archived: false
                 }
             },
             {
@@ -70,6 +71,9 @@ exports.getAllLists = async (req, res) => {
                     foreignField: "listId",
                     as: "cardData"
                 }
+            },
+            {
+                $sort: { position: 1 }
             }
         ])
 
