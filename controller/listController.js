@@ -55,25 +55,115 @@ exports.getAllLists = async (req, res) => {
             return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
         }
 
-        let paginatedListData;
-
-        paginatedListData = await list.aggregate([
+        let paginatedListData = await list.aggregate([
             {
                 $match: {
-                    boardId: new mongoose.Types.ObjectId(id),
-                    archived: false
+                    boardId: new mongoose.Types.ObjectId(id)
+                }
+            },
+            {
+                $lookup: {
+                    from: 'boards',
+                    localField: 'boardId',
+                    foreignField: '_id',
+                    pipeline: [
+                        {
+                            $project: {
+                                label: 1
+                            }
+                        },
+                        {
+                            $unwind: "$label"
+                        },
+                        {
+                            $group: {
+                                _id: "$_id",
+                                labels: {
+                                    $push: {
+                                        _id: "$label._id",
+                                        data: "$label.data",
+                                        color: "$label.color",
+                                        status: "$label.status"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    as: 'boardData'
                 }
             },
             {
                 $lookup: {
                     from: 'cards',
-                    localField: "_id",
-                    foreignField: "listId",
+                    let: { listId: "$_id", boardLabels: { $arrayElemAt: ["$boardData.labels", 0] } },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$listId", "$$listId"] }
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$label",
+                                preserveNullAndEmptyArrays: true
+                            }
+                        },
+                        {
+                            $addFields: {
+                                labelDetails: {
+                                    $filter: {
+                                        input: "$$boardLabels",
+                                        as: "boardLabel",
+                                        cond: { $eq: ["$$boardLabel._id", "$label.labelId"] }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: "$_id",
+                                listId: { $first: "$listId" },
+                                title: { $first: "$title" },
+                                archived: { $first: "$archived" },
+                                position: { $first: "$position" },
+                                attachments: { $first: "$attachments" },
+                                checkList: { $first: "$checkList" },
+                                member: { $first: "$member" },
+                                cover: { $first: "$cover" },
+                                createdAt: { $first: "$createdAt" },
+                                updatedAt: { $first: "$updatedAt" },
+                                dueDate: { $first: "$dueDate" },
+                                startDate: { $first: "$startDate" },
+                                status: { $first: "$status" },
+                                labels: {
+                                    $push: {
+                                        $mergeObjects: [
+                                            {
+                                                _id: "$label._id",
+                                                labelId: "$label.labelId"
+                                            },
+                                            { $arrayElemAt: ["$labelDetails", 0] }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    ],
                     as: "cardData"
                 }
             },
             {
-                $sort: { position: 1 }
+                $project: {
+                    _id: 1,
+                    boardId: 1,
+                    title: 1,
+                    position: 1,
+                    archived: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    cardData: 1,
+                    // boardLabels: { $arrayElemAt: ["$boardData.labels", 0] }
+                }
             }
         ])
 
@@ -86,10 +176,15 @@ exports.getAllLists = async (req, res) => {
         if (page && pageSize) {
             let startIndex = (page - 1) * pageSize
             let lastIndex = (startIndex + pageSize)
-            paginatedListData = await paginatedListData.slice(startIndex, lastIndex)
+            paginatedListData = paginatedListData.slice(startIndex, lastIndex)
         }
 
-        return res.status(200).json({ status: 200, success: true, message: "All List Data Found SuccessFully...", data: paginatedListData })
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "All List Data Found Successfully...",
+            data: paginatedListData
+        })
 
     } catch (error) {
         console.log(error)
@@ -237,14 +332,14 @@ exports.deleteListById = async (req, res) => {
 
         const boardData = await board.findById(getListData.boardId);
 
-        const isMember = boardData.members.some(
-            member => member.user.toString() === req.user._id.toString() &&
-                member.role === 'admin'
-        );
+        // const isMember = boardData.members.some(
+        //     member => member.user.toString() === req.user._id.toString() &&
+        //         member.role === 'admin'
+        // );
 
-        if (!isMember) {
-            return res.status(403).json({ status: 403, success: false, message: 'Not authorized to delete this list' });
-        }
+        // if (!isMember) {
+        //     return res.status(403).json({ status: 403, success: false, message: 'Not authorized to delete this list' });
+        // }
 
         await list.findByIdAndDelete(id);
 

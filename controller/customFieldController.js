@@ -1,6 +1,5 @@
 const customfield = require('../models/CustomFieldModel');
 
-
 exports.createCustomField = async (req, res) => {
     try {
         const { boardId, field } = req.body;
@@ -39,6 +38,7 @@ exports.editCustomField = async (req, res) => {
         const { boardId, fieldId: targetFieldId, fieldOptionId, updatedOption, fieldLabel } = req.body;
         const customFieldId = req.params.id;
 
+
         // Validate required fields
         if (!boardId || !targetFieldId || (!fieldOptionId && !fieldLabel) || (!updatedOption && !fieldLabel)) {
             return res.status(400).json({
@@ -53,16 +53,19 @@ exports.editCustomField = async (req, res) => {
         if (!existingCustomField) {
             return res.status(404).json({
                 success: false,
-                message: 'Custom field not found'
+                message: 'Custom field not found',
+                existingCustomField,customFieldId
             });
         }
+        
 
         // Find the specific field to update
         const targetField = existingCustomField.field.find(f => f._id.toString() === targetFieldId);
         if (!targetField) {
             return res.status(404).json({
                 success: false,
-                message: 'Field not found'
+                message: 'Field not found',
+                existingCustomField
             });
         }
 
