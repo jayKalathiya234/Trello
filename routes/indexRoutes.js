@@ -74,8 +74,6 @@ indexRoutes.get('/allLists/:id', auth, getAllLists);
 indexRoutes.post('/copyList/:id', auth, copyListData);
 indexRoutes.post('/moveList/:id', auth, moveListData);
 
-indexRoutes.put('/archivelists/:id', auth, archivedList)
-
 // card Routes
 
 indexRoutes.post('/createCard', auth, createCard);
