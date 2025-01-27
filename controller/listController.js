@@ -4,7 +4,7 @@ const mongoose = require('mongoose')
 
 exports.createList = async (req, res) => {
     try {
-        let { boardId, title, color } = req.body
+        let { boardId, title } = req.body
 
         let checkExistList = await list.findOne({ boardId, title })
 
@@ -32,8 +32,7 @@ exports.createList = async (req, res) => {
         checkExistList = await list.create({
             boardId,
             title,
-            position,
-            color
+            position
         });
 
         return res.status(201).json({ status: 201, success: true, message: "List Create SuccessFully...", data: checkExistList })
@@ -55,25 +54,115 @@ exports.getAllLists = async (req, res) => {
             return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
         }
 
-        let paginatedListData;
-
-        paginatedListData = await list.aggregate([
+        let paginatedListData = await list.aggregate([
             {
                 $match: {
-                    boardId: new mongoose.Types.ObjectId(id),
-                    archived: false
+                    boardId: new mongoose.Types.ObjectId(id)
+                }
+            },
+            {
+                $lookup: {
+                    from: 'boards',
+                    localField: 'boardId',
+                    foreignField: '_id',
+                    pipeline: [
+                        {
+                            $project: {
+                                label: 1
+                            }
+                        },
+                        {
+                            $unwind: "$label"
+                        },
+                        {
+                            $group: {
+                                _id: "$_id",
+                                labels: {
+                                    $push: {
+                                        _id: "$label._id",
+                                        data: "$label.data",
+                                        color: "$label.color",
+                                        status: "$label.status"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    as: 'boardData'
                 }
             },
             {
                 $lookup: {
                     from: 'cards',
-                    localField: "_id",
-                    foreignField: "listId",
+                    let: { listId: "$_id", boardLabels: { $arrayElemAt: ["$boardData.labels", 0] } },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$listId", "$$listId"] }
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$label",
+                                preserveNullAndEmptyArrays: true
+                            }
+                        },
+                        {
+                            $addFields: {
+                                labelDetails: {
+                                    $filter: {
+                                        input: "$$boardLabels",
+                                        as: "boardLabel",
+                                        cond: { $eq: ["$$boardLabel._id", "$label.labelId"] }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: "$_id",
+                                listId: { $first: "$listId" },
+                                title: { $first: "$title" },
+                                archived: { $first: "$archived" },
+                                position: { $first: "$position" },
+                                attachments: { $first: "$attachments" },
+                                checkList: { $first: "$checkList" },
+                                member: { $first: "$member" },
+                                cover: { $first: "$cover" },
+                                createdAt: { $first: "$createdAt" },
+                                updatedAt: { $first: "$updatedAt" },
+                                dueDate: { $first: "$dueDate" },
+                                startDate: { $first: "$startDate" },
+                                status: { $first: "$status" },
+                                labels: {
+                                    $push: {
+                                        $mergeObjects: [
+                                            {
+                                                _id: "$label._id",
+                                                labelId: "$label.labelId"
+                                            },
+                                            { $arrayElemAt: ["$labelDetails", 0] }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    ],
                     as: "cardData"
                 }
             },
             {
-                $sort: { position: 1 }
+                $project: {
+                    _id: 1,
+                    boardId: 1,
+                    title: 1,
+                    position: 1,
+                    archived: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    cardData: 1,
+                    // boardLabels: { $arrayElemAt: ["$boardData.labels", 0] }
+                }
             }
         ])
 
@@ -86,10 +175,15 @@ exports.getAllLists = async (req, res) => {
         if (page && pageSize) {
             let startIndex = (page - 1) * pageSize
             let lastIndex = (startIndex + pageSize)
-            paginatedListData = await paginatedListData.slice(startIndex, lastIndex)
+            paginatedListData = paginatedListData.slice(startIndex, lastIndex)
         }
 
-        return res.status(200).json({ status: 200, success: true, message: "All List Data Found SuccessFully...", data: paginatedListData })
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "All List Data Found Successfully...",
+            data: paginatedListData
+        })
 
     } catch (error) {
         console.log(error)
@@ -191,7 +285,7 @@ exports.updateListById = async (req, res) => {
     try {
         let id = req.params.id
 
-        const { title, position, archived, color } = req.body;
+        const { title, position, archived } = req.body;
 
         const getList = await list.findById(id);
 
@@ -210,7 +304,6 @@ exports.updateListById = async (req, res) => {
         }
 
         if (title) getList.title = title;
-        if (color) getList.color = color;
         // if (description) getList.description = description;
         if (position !== undefined) getList.position = position;
         if (archived !== undefined) getList.archived = archived;
@@ -285,35 +378,15 @@ exports.copyListData = async (req, res) => {
         // Create new list with copied data
         const copiedList = await list.create({
             boardId: getListData.boardId,
-            title: title,
+            title: title || `${getListData.title} (Copy)`,
             position: position,
-            archived: false,
-            color:getListData.color
+            archived: false
         });
-
-        // Copy all cards from the original list
-        const cards = await mongoose.model('card').find({ listId: id });
-        const cardCopyPromises = cards.map(card => {
-            return mongoose.model('card').create({
-                listId: copiedList._id,
-                boardId: card.boardId,
-                title: card.title,
-                description: card.description,
-                position: card.position,
-                dueDate: card.dueDate,
-                labels: card.labels,
-                members: card.members,
-                color: card.color,
-                archived: false
-            });
-        });
-        
-        await Promise.all(cardCopyPromises);
 
         return res.status(201).json({
             status: 201,
             success: true,
-            message: 'List and cards copied successfully',
+            message: 'List copied successfully',
             data: copiedList
         });
     } catch (error) {
@@ -325,7 +398,7 @@ exports.copyListData = async (req, res) => {
 exports.moveListData = async (req, res) => {
     try {
         let id = req.params.id
-        let { newPosition, newBoardId } = req.body;
+        let { newPosition } = req.body;
 
         // Find the list to be moved
         const listToMove = await list.findById(id);
@@ -333,121 +406,51 @@ exports.moveListData = async (req, res) => {
             return res.status(404).json({ status: 404, success: false, message: "List not found" });
         }
 
-        // Check source board membership
-        const sourceBoardData = await board.findById(listToMove.boardId);
-        const isSourceMember = sourceBoardData.members.some(
+        // Check board membership
+        const boardData = await board.findById(listToMove.boardId);
+        const isMember = boardData.members.some(
             member => member.user.toString() === req.user._id.toString()
         );
 
-        if (!isSourceMember) {
+        if (!isMember) {
             return res.status(403).json({ status: 403, success: false, message: 'Not authorized to move this list' });
         }
 
-        // If moving to a different board
-        if (newBoardId && newBoardId !== listToMove.boardId.toString()) {
-            const targetBoardData = await board.findById(newBoardId);
-            if (!targetBoardData) {
-                return res.status(404).json({ status: 404, success: false, message: "Target board not found" });
-            }
+        // Get all lists in the board to update positions
+        const allLists = await list.find({
+            boardId: listToMove.boardId,
+            archived: false
+        }).sort({ position: 1 });
 
-            const isTargetMember = targetBoardData.members.some(
-                member => member.user.toString() === req.user._id.toString()
-            );
-
-            if (!isTargetMember) {
-                return res.status(403).json({ status: 403, success: false, message: 'Not authorized to move list to target board' });
-            }
-
-            // Update positions in source board
+        // Update positions of affected lists
+        if (newPosition > listToMove.position) {
+            // Moving down: update positions of lists between old and new position
             await list.updateMany(
                 {
                     boardId: listToMove.boardId,
-                    position: { $gt: listToMove.position },
-                    archived: false
+                    position: { $gt: listToMove.position, $lte: newPosition }
                 },
                 { $inc: { position: -1 } }
             );
-
-            // If newPosition is specified, use it and adjust target board positions
-            if (newPosition !== undefined) {
-                // Get all lists in target board
-                const targetBoardLists = await list.find({ 
-                    boardId: newBoardId,
-                    archived: false 
-                }).sort({ position: 1 });
-
-                const maxPosition = targetBoardLists.length;
-                
-                // Ensure newPosition is within valid range
-                const validPosition = Math.max(1, Math.min(newPosition, maxPosition + 1));
-
-                // Shift positions in target board to make space
-                await list.updateMany(
-                    {
-                        boardId: newBoardId,
-                        position: { $gte: validPosition },
-                        archived: false
-                    },
-                    { $inc: { position: 1 } }
-                );
-
-                listToMove.position = validPosition;
-            } else {
-                // If no position specified, add to end
-                const lastListInTarget = await list.findOne({ 
-                    boardId: newBoardId,
-                    archived: false 
-                }).sort({ position: -1 });
-                
-                listToMove.position = lastListInTarget ? lastListInTarget.position + 1 : 1;
-            }
-            
-            listToMove.boardId = newBoardId;
-        } else if (newPosition !== undefined) {
-            // Same board, position change
-            const currentLists = await list.find({ 
-                boardId: listToMove.boardId,
-                archived: false 
-            }).sort({ position: 1 });
-
-            const maxPosition = currentLists.length;
-            const oldPosition = listToMove.position;
-            
-            // Ensure newPosition is within valid range
-            const validPosition = Math.max(1, Math.min(newPosition, maxPosition));
-
-            if (validPosition !== oldPosition) {
-                if (validPosition > oldPosition) {
-                    // Moving down
-                    await list.updateMany(
-                        {
-                            boardId: listToMove.boardId,
-                            position: { $gt: oldPosition, $lte: validPosition },
-                            archived: false
-                        },
-                        { $inc: { position: -1 } }
-                    );
-                } else {
-                    // Moving up
-                    await list.updateMany(
-                        {
-                            boardId: listToMove.boardId,
-                            position: { $gte: validPosition, $lt: oldPosition },
-                            archived: false
-                        },
-                        { $inc: { position: 1 } }
-                    );
-                }
-                listToMove.position = validPosition;
-            }
+        } else if (newPosition < listToMove.position) {
+            // Moving up: update positions of lists between new and old position
+            await list.updateMany(
+                {
+                    boardId: listToMove.boardId,
+                    position: { $gte: newPosition, $lt: listToMove.position }
+                },
+                { $inc: { position: 1 } }
+            );
         }
 
+        // Update position of the moved list
+        listToMove.position = newPosition;
         await listToMove.save();
 
         return res.status(200).json({
             status: 200,
             success: true,
-            message: "List moved successfully",
+            message: "List position updated successfully",
             data: listToMove
         });
 
@@ -463,7 +466,8 @@ exports.archivedList = async (req, res) => {
         let { archived } = req.body;
 
         // Find the list to be archived
-        const listToArchive = await list.findById(id);
+        const listToArchive = await list.findById(id)
+            ;
         if (!listToArchive) {
             return res.status(404).json({ status: 404, success: false, message: "List Not Found" });
         }
