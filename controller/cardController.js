@@ -5,7 +5,7 @@ const { default: mongoose } = require('mongoose')
 const customfield = require('../models/CustomFieldModel')
 exports.createCard = async (req, res) => {
     try {
-        let { listId, title, description, dueDate,color, status, position, attachments, comments, customFields, checkList } = req.body
+        let { listId, title, description, dueDate, color, status, position, attachments, comments, customFields, checkList } = req.body
 
 
 
@@ -108,7 +108,7 @@ exports.addMambers = async (req, res) => {
             id,
             { $push: { member: { user: userId } } },
             { new: true }
-        );
+        ).populate('member.user', 'name email')
 
         return res.status(200).json({ status: 200, success: true, message: "Card Memeber add SuccessFully...", data: checkCardData });
 
@@ -1073,7 +1073,7 @@ exports.updateCardCustomFields = async (req, res) => {
 
         // Find the card first
         let cardData = await card.findById(cardId);
-        
+
         if (!cardData) {
             return res.status(404).json({
                 success: false,
@@ -1087,7 +1087,7 @@ exports.updateCardCustomFields = async (req, res) => {
         }
 
         // Find or create the custom field entry
-        let customFieldIndex = cardData.customFields.findIndex(cf => 
+        let customFieldIndex = cardData.customFields.findIndex(cf =>
             cf.fieldId && cf.fieldId.toString() === fieldId
         );
 
@@ -1129,7 +1129,7 @@ exports.updateCardCustomFields = async (req, res) => {
             }
         ]);
         console.log(customFields);
-        
+
         return res.status(200).json({
             success: true,
             message: 'Card custom fields updated successfully',

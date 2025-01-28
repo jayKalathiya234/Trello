@@ -12,12 +12,12 @@ const customFieldSchema = mongoose.Schema({
                 type: String,
                 required: true
             },
-            fieldType:{
-                type:String
+            fieldType: {
+                type: String
             },
-            fieldShown:{
+            fieldShown: {
                 type: Boolean,
-                default: true
+                default: false
             },
             fieldOptions: [
                 {

@@ -54,10 +54,10 @@ exports.editCustomField = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Custom field not found',
-                existingCustomField,customFieldId
+                existingCustomField, customFieldId
             });
         }
-        
+
 
         // Find the specific field to update
         const targetField = existingCustomField.field.find(f => f._id.toString() === targetFieldId);
@@ -114,7 +114,7 @@ exports.editCustomField = async (req, res) => {
 
 exports.deleteCustomField = async (req, res) => {
     try {
-        const  fieldOptionId  = req.params.id;
+        const fieldOptionId = req.params.id;
 
         // Validate required fields
         if (!fieldOptionId) {
@@ -137,7 +137,7 @@ exports.deleteCustomField = async (req, res) => {
         }
 
         // Find the field containing the option to delete
-        const targetField = existingCustomField.field.find(f => 
+        const targetField = existingCustomField.field.find(f =>
             f.fieldOptions.some(opt => opt._id.toString() === fieldOptionId)
         );
 
@@ -220,6 +220,114 @@ exports.addCustomFieldOption = async (req, res) => {
             success: false,
             message: 'Error adding field option',
             error: error.message
+        });
+    }
+};
+
+exports.updateCustomFieldById = async (req, res) => {
+    try {
+        let boardId = req.params.id
+
+        const { field } = req.body;
+
+        const customField = await customfield.findOne({ boardId });
+
+        if (!customField) {
+            return res.status(404).json({ success: false, message: 'Custom field not found for the given boardId' });
+        }
+
+        customField.field.push(...field);
+
+        await customField.save();
+
+        return res.status(200).json({ success: true, message: 'Custom field updated successfully', data: customField });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteCustomFieldById = async (req, res) => {
+    try {
+        const fieldId = req.params.id;
+
+        const customField = await customfield.findOne({ "field._id": fieldId });
+
+        if (!customField) {
+            return res.status(404).json({ success: false, message: 'Board not found or field not in the board' });
+        }
+
+        const fieldIndex = customField.field.findIndex(field => field._id.toString() === fieldId);
+
+        if (fieldIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Field not found for the given fieldId'
+            });
+        }
+
+        customField.field.splice(fieldIndex, 1);
+
+        await customField.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Custom field deleted successfully',
+            data: customField
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.updateCustomFieldfieldShownStatusById = async (req, res) => {
+    try {
+        const fieldId = req.params.id;
+        const { fieldShown } = req.body;
+        if (fieldShown === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: 'fieldShown is required to update.'
+            });
+        }
+
+        const customField = await customfield.findOne({ "field._id": fieldId });
+
+        if (!customField) {
+            return res.status(404).json({
+                success: false,
+                message: 'Board not found or field not in the board'
+            });
+        }
+
+        // Find the index of the field to update
+        const fieldIndex = customField.field.findIndex(field => field._id.toString() === fieldId);
+
+        if (fieldIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Field not found for the given fieldId'
+            });
+        }
+
+        // Update the fieldShown value at the found index
+        customField.field[fieldIndex].fieldShown = fieldShown;
+
+        // Save the updated custom field document
+        await customField.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Custom field fieldShown updated successfully',
+            data: customField
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
         });
     }
 };

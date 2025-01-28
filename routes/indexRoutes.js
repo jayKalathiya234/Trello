@@ -7,7 +7,7 @@ const { createBoard, getAllBoards, getBorderById, joinBordByInvitationLink, upda
 const { createList, getAllListForBoard, updateListById, deleteListById, getListById, getArchivedListForBoard, getAllLists, copyListData, moveListData, archivedList } = require('../controller/listController');
 const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById, updateSetAttachement, removeLableById, updateCardData, getCardByList, moveAllCards, deleteAttachement, updateCustomFields, deleteCustomFields, getArchivedCard, archivedAllCardInList, archivedCardById, updateCheckList, createCheckList, deleteCheckList, createCover, updateCover, deleteCover, updateLabelId, updateCardCustomFields, deleteAllCheckList } = require('../controller/cardController');
 const upload = require('../helper/imageUplode');
-const { createCustomField, editCustomField, deleteCustomField, addCustomFieldOption } = require('../controller/customFieldController');
+const { createCustomField, editCustomField, deleteCustomField, addCustomFieldOption, updateCustomField, updateCustomFieldById, deleteCustomFieldById, updateCustomFieldfieldShownStatusById } = require('../controller/customFieldController');
 const indexRoutes = express.Router();
 
 // Auth Routes
@@ -107,8 +107,8 @@ indexRoutes.delete('/deleteCheckList/:id', auth, deleteCheckList);
 indexRoutes.delete('/deleteAllCheckList/:id', auth, deleteAllCheckList);
 indexRoutes.post('/createCover/:id', auth, upload.fields([{ name: 'image' }]), createCover);
 indexRoutes.put('/updateCover/:id', auth, upload.fields([{ name: 'image' }]), updateCover);
-indexRoutes.delete('/deleteCover/:id',auth, deleteCover);
-indexRoutes.post('/updateLableId/:id', auth,updateLabelId)
+indexRoutes.delete('/deleteCover/:id', auth, deleteCover);
+indexRoutes.post('/updateLableId/:id', auth, updateLabelId)
 
 
 indexRoutes.put('/updateCustomField/:id', auth, editCustomField);
@@ -117,6 +117,9 @@ indexRoutes.post('/createCustom', auth, createCustomField);
 indexRoutes.post('/addCustomFieldCard', auth, updateCardCustomFields);
 indexRoutes.post('/addCustomFieldOption', auth, addCustomFieldOption);
 
+indexRoutes.put('/addCustomeFiled/:id', auth, updateCustomFieldById)
+indexRoutes.delete('/deleteCustomeFiled/:id', auth, deleteCustomFieldById)
+indexRoutes.put('/updatefieldShownStatus/:id', auth, updateCustomFieldfieldShownStatusById)
 
 
 module.exports = indexRoutes
