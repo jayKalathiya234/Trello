@@ -120,6 +120,14 @@ exports.getAllLists = async (req, res) => {
                             }
                         },
                         {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'member.user',
+                                foreignField: '_id',
+                                as: 'memberDetails'
+                            }
+                        },
+                        {
                             $group: {
                                 _id: "$_id",
                                 listId: { $first: "$listId" },
@@ -145,13 +153,15 @@ exports.getAllLists = async (req, res) => {
                                             { $arrayElemAt: ["$labelDetails", 0] }
                                         ]
                                     }
-                                }
+                                },
+                                memberDetails: { $first: "$memberDetails" }
                             }
                         }
                     ],
                     as: "cardData"
                 }
             },
+
             {
                 $project: {
                     _id: 1,
@@ -383,7 +393,7 @@ exports.copyListData = async (req, res) => {
             title: title,
             position: position,
             archived: false,
-            color:getListData.color
+            color: getListData.color
         });
 
         // Copy all cards from the original list
@@ -402,7 +412,7 @@ exports.copyListData = async (req, res) => {
                 archived: false
             });
         });
-        
+
         await Promise.all(cardCopyPromises);
 
         return res.status(201).json({
@@ -466,13 +476,13 @@ exports.moveListData = async (req, res) => {
             // If newPosition is specified, use it and adjust target board positions
             if (newPosition !== undefined) {
                 // Get all lists in target board
-                const targetBoardLists = await list.find({ 
+                const targetBoardLists = await list.find({
                     boardId: newBoardId,
-                    archived: false 
+                    archived: false
                 }).sort({ position: 1 });
 
                 const maxPosition = targetBoardLists.length;
-                
+
                 // Ensure newPosition is within valid range
                 const validPosition = Math.max(1, Math.min(newPosition, maxPosition + 1));
 
@@ -489,25 +499,25 @@ exports.moveListData = async (req, res) => {
                 listToMove.position = validPosition;
             } else {
                 // If no position specified, add to end
-                const lastListInTarget = await list.findOne({ 
+                const lastListInTarget = await list.findOne({
                     boardId: newBoardId,
-                    archived: false 
+                    archived: false
                 }).sort({ position: -1 });
-                
+
                 listToMove.position = lastListInTarget ? lastListInTarget.position + 1 : 1;
             }
-            
+
             listToMove.boardId = newBoardId;
         } else if (newPosition !== undefined) {
             // Same board, position change
-            const currentLists = await list.find({ 
+            const currentLists = await list.find({
                 boardId: listToMove.boardId,
-                archived: false 
+                archived: false
             }).sort({ position: 1 });
 
             const maxPosition = currentLists.length;
             const oldPosition = listToMove.position;
-            
+
             // Ensure newPosition is within valid range
             const validPosition = Math.max(1, Math.min(newPosition, maxPosition));
 
