@@ -146,7 +146,7 @@ exports.createLabel = async (req, res) => {
     try {
         let id = req.params.id
 
-        let { labelName, color } = req.body
+        let { labelId } = req.body
 
         let checkCardId = await card.findById(id)
 
@@ -156,7 +156,7 @@ exports.createLabel = async (req, res) => {
 
         checkCardId = await card.findByIdAndUpdate(
             id,
-            { $push: { label: { data: labelName, color: color } } },
+            { $push: { label: { labelId: labelId } } },
             { new: true }
         );
 
