@@ -169,6 +169,7 @@ exports.getAllLists = async (req, res) => {
                     title: 1,
                     position: 1,
                     archived: 1,
+                    color: 1,
                     createdAt: 1,
                     updatedAt: 1,
                     cardData: 1,
