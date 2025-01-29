@@ -21,6 +21,10 @@ const userSchema = mongoose.Schema({
     bio: {
         type: String,
         require: true
+    },
+    premium:{
+        type:Boolean,
+        default:false
     }
 }, {
     timestamps: true,
