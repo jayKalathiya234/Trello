@@ -41,52 +41,339 @@ exports.createCard = async (req, res) => {
 
 exports.getAllCardData = async (req, res) => {
     try {
-        let page = parseInt(req.query.page)
-        let pageSize = parseInt(req.query.pageSize)
+        let page = parseInt(req.query.page);
+        let pageSize = parseInt(req.query.pageSize);
 
         if (page < 1 || pageSize < 1) {
-            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
+            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" });
         }
 
         let paginatedCardData;
 
-        paginatedCardData = await card.find().populate('listId').populate('member.user')
+        paginatedCardData = await card.find().populate('listId').populate('member.user');
 
-        let count = paginatedCardData.length
+        let count = paginatedCardData.length;
 
         if (count === 0) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" })
+            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" });
         }
 
         if (page && pageSize) {
-            let startIndex = (page - 1) * pageSize
-            let lastIndex = (startIndex + pageSize)
-            paginatedCardData = await paginatedCardData.slice(startIndex, lastIndex)
+            let startIndex = (page - 1) * pageSize;
+            let lastIndex = (startIndex + pageSize);
+            paginatedCardData = await paginatedCardData.slice(startIndex, lastIndex);
         }
 
-        return res.status(200).json({ status: 200, success: true, message: "All Card Data Found SuccessFully...", data: paginatedCardData })
+        // New aggregation logic for custom fields and list data
+        const enrichedCardDataPromises = paginatedCardData.map(async cardItem => {
+            const customFieldsData = cardItem.customFields;
+
+            // Fetch custom fields
+            const customFields = await customfield.aggregate([
+                { $unwind: "$field" },
+                {
+                    $match: {
+                        "field._id": {
+                            $in: customFieldsData.map(cf => cf.fieldId)
+                        }
+                    }
+                },
+                { $unwind: "$field.fieldOptions" },
+                {
+                    $group: {
+                        _id: "$field._id",
+                        fieldLabel: { $first: "$field.fieldLabel" },
+                        fieldType: { $first: "$field.fieldType" },
+                        fieldShown: { $first: "$field.fieldShown" },
+                        fieldOptions: {
+                            $push: {
+                                _id: "$field.fieldOptions._id",
+                                optionName: "$field.fieldOptions.text",
+                                optionColor: "$field.fieldOptions.color"
+                            }
+                        }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "cards",
+                        let: { fieldId: "$_id" },
+                        pipeline: [
+                            { $match: { _id: new mongoose.Types.ObjectId(cardItem._id) } },
+                            { $unwind: "$customFields" },
+                            {
+                                $match: {
+                                    $expr: {
+                                        $eq: ["$customFields.fieldId", "$$fieldId"]
+                                    }
+                                }
+                            },
+                            {
+                                $project: {
+                                    selectedOptions: "$customFields.selectedOptions"
+                                }
+                            }
+                        ],
+                        as: "cardField"
+                    }
+                },
+                {
+                    $addFields: {
+                        selectedOptionIds: {
+                            $ifNull: [
+                                { $arrayElemAt: ["$cardField.selectedOptions", 0] },
+                                []
+                            ]
+                        }
+                    }
+                },
+                {
+                    $addFields: {
+                        selectedOptions: {
+                            $filter: {
+                                input: "$fieldOptions",
+                                as: "option",
+                                cond: {
+                                    $in: ["$$option._id", "$selectedOptionIds"]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        fieldLabel: 1,
+                        fieldType: 1,
+                        fieldShown: 1,
+                        selectedOptions: 1
+                    }
+                }
+            ]);
+
+            // Fetch list data
+            const listData = await card.aggregate([
+                {
+                    $match: { _id: new mongoose.Types.ObjectId(cardItem._id) }
+                },
+                {
+                    $lookup: {
+                        from: 'boards',
+                        let: { labelIds: '$label.labelId' },
+                        pipeline: [
+                            {
+                                $unwind: '$label'
+                            },
+                            {
+                                $match: {
+                                    $expr: {
+                                        $in: ['$label._id', '$$labelIds']
+                                    }
+                                }
+                            },
+                            {
+                                $project: {
+                                    'label._id': 1,
+                                    'label.data': 1,
+                                    'label.color': 1,
+                                    'label.status': 1
+                                }
+                            }
+                        ],
+                        as: 'labelInfo'
+                    }
+                },
+                {
+                    $project: {
+                        labelInfo: 1 
+                    }
+                }
+            ]);
+
+            return {
+                getCardDataId: cardItem,
+                customFields,
+                listData
+            };
+        });
+
+        const enrichedCardData = await Promise.all(enrichedCardDataPromises);
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "All Card Data Found Successfully...",
+            data: enrichedCardData
+        });
 
     } catch (error) {
-        console.log(error)
-        return res.status(500).json({ status: 500, success: false, message: error.message })
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
 
 exports.getCardDataById = async (req, res) => {
     try {
-        let id = req.params.id
+        let id = req.params.id;
 
-        let getCardDataId = await card.findById(id).populate('listId').populate('member.user')
+        let getCardDataId = await card.findById(id)
+            .populate('listId')
+            .populate('member.user');
 
         if (!getCardDataId) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" })
+            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" });
         }
 
-        return res.status(200).json({ status: 200, success: true, message: "Card Data Found SuccessFully...", data: getCardDataId })
+        const customFieldsData = getCardDataId.customFields;
+
+
+        const customFields = await customfield.aggregate([
+
+            { $unwind: "$field" },
+
+            {
+                $match: {
+                    "field._id": {
+                        $in: customFieldsData.map(cf => cf.fieldId)
+                    }
+                }
+            },
+
+            { $unwind: "$field.fieldOptions" },
+
+            {
+                $group: {
+                    _id: "$field._id",
+                    fieldLabel: { $first: "$field.fieldLabel" },
+                    fieldType: { $first: "$field.fieldType" },
+                    fieldShown: { $first: "$field.fieldShown" },
+                    fieldOptions: {
+                        $push: {
+                            _id: "$field.fieldOptions._id",
+                            optionName: "$field.fieldOptions.text",
+                            optionColor: "$field.fieldOptions.color"
+                        }
+                    }
+                }
+            },
+
+            {
+                $lookup: {
+                    from: "cards",
+                    let: { fieldId: "$_id" },
+                    pipeline: [
+                        { $match: { _id: new mongoose.Types.ObjectId(id) } },
+                        { $unwind: "$customFields" },
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: ["$customFields.fieldId", "$$fieldId"]
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                selectedOptions: "$customFields.selectedOptions"
+                            }
+                        }
+                    ],
+                    as: "cardField"
+                }
+            },
+
+            {
+                $addFields: {
+                    selectedOptionIds: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$cardField.selectedOptions", 0] },
+                            []
+                        ]
+                    }
+                }
+            },
+
+            {
+                $addFields: {
+                    selectedOptions: {
+                        $filter: {
+                            input: "$fieldOptions",
+                            as: "option",
+                            cond: {
+                                $in: ["$$option._id", "$selectedOptionIds"]
+                            }
+                        }
+                    }
+                }
+            },
+
+            {
+                $project: {
+                    _id: 1,
+                    fieldLabel: 1,
+                    fieldType: 1,
+                    fieldShown: 1,
+                    selectedOptions: 1
+                }
+            }
+        ]);
+
+        const listData = await card.aggregate([
+            {
+                $match: { _id: new mongoose.Types.ObjectId(id) }
+            },
+            {
+                $lookup: {
+                    from: 'boards',
+                    let: { labelIds: '$label.labelId' },
+                    pipeline: [
+                        {
+                            $unwind: '$label'
+                        },
+                        {
+                            $match: {
+                                $expr: {
+                                    $in: ['$label._id', '$$labelIds']
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                'label._id': 1,
+                                'label.data': 1,
+                                'label.color': 1,
+                                'label.status': 1
+                            }
+                        }
+                    ],
+                    as: 'labelInfo'
+                }
+            },
+            {
+                $project: {
+                    labelInfo: 1 
+                }
+            }
+
+        ])
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Card Data Found Successfully...",
+            data: {
+                getCardDataId,
+                customFields,
+                listData
+            }
+        });
 
     } catch (error) {
-        console.log(error)
-        return res.status(500).json({ status: 500, success: false, message: error.message })
+        console.log(error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: error.message
+        });
     }
 }
 
@@ -1194,7 +1481,7 @@ exports.createCardChecklist = async (req, res) => {
     try {
         const cardId = req.params.id;
         const { checkList } = req.body;
-        
+
         if (!cardId || !checkList) {
             return res.status(400).json({
                 success: false,
@@ -1215,7 +1502,7 @@ exports.createCardChecklist = async (req, res) => {
         for (const item of checkList) {
             if (item.listId) {
                 const sourceCard = await card.findOne({
-                    'checkList._id': item.listId 
+                    'checkList._id': item.listId
                 });
 
                 if (sourceCard) {
@@ -1247,26 +1534,33 @@ exports.createCardChecklist = async (req, res) => {
                     }
                 }
             } else {
-                const existingIndex = processedCheckList.findIndex(
-                    pcl => pcl.title === item.title
-                );
-
-                if (existingIndex !== -1) {
-                    processedCheckList[existingIndex].list = [
-                        ...processedCheckList[existingIndex].list,
-                        ...item.list.map(listItem => ({
-                            text: listItem.text,
-                            completed: listItem.completed || false
-                        }))
-                    ];
-                } else {
+                if (item.title && !item.list) {
                     processedCheckList.push({
                         title: item.title,
-                        list: item.list.map(listItem => ({
-                            text: listItem.text,
-                            completed: listItem.completed || false
-                        }))
+                        list: [] 
                     });
+                } else {
+                    const existingIndex = processedCheckList.findIndex(
+                        pcl => pcl.title === item.title
+                    );
+
+                    if (existingIndex !== -1) {
+                        processedCheckList[existingIndex].list = [
+                            ...processedCheckList[existingIndex].list,
+                            ...item.list.map(listItem => ({
+                                text: listItem.text,
+                                completed: listItem.completed || false
+                            }))
+                        ];
+                    } else {
+                        processedCheckList.push({
+                            title: item.title,
+                            list: item.list.map(listItem => ({
+                                text: listItem.text,
+                                completed: listItem.completed || false
+                            }))
+                        });
+                    }
                 }
             }
         }
@@ -1288,101 +1582,6 @@ exports.createCardChecklist = async (req, res) => {
         console.log(error);
         return res.status(500).json({ success: false, message: error.message });
     }
-    // try {
-    //     const cardId = req.params.id;
-    //     const { checkList } = req.body;
-
-    //     if (!cardId || !checkList) {
-    //         return res.status(400).json({
-    //             success: false,
-    //             message: 'Card ID and checklist are required'
-    //         });
-    //     }
-
-    //     const existingCard = await card.findById(cardId);
-    //     if (!existingCard) {
-    //         return res.status(404).json({
-    //             success: false,
-    //             message: 'Card not found'
-    //         });
-    //     }
-
-    //     let processedCheckList = [...existingCard.checkList || []];
-
-    //     for (const item of checkList) {
-    //         if (item.listId) {
-    //             const sourceCard = await card.findOne({
-    //                 'checkList.list._id': item.listId
-    //             });
-
-    //             if (sourceCard) {
-    //                 const existingChecklist = sourceCard.checkList.find(
-    //                     cl => cl.list.some(l => l._id.toString() === item.listId)
-    //                 );
-
-    //                 if (existingChecklist) {
-    //                     const existingIndex = processedCheckList.findIndex(
-    //                         pcl => pcl.title === (item.title || existingChecklist.title)
-    //                     );
-
-    //                     const newChecklistItem = {
-    //                         title: item.title || existingChecklist.title,
-    //                         list: existingChecklist.list.filter(l =>
-    //                             l._id.toString() === item.listId
-    //                         )
-    //                     };
-
-    //                     if (existingIndex !== -1) {
-    //                         processedCheckList[existingIndex].list = [
-    //                             ...processedCheckList[existingIndex].list,
-    //                             ...newChecklistItem.list
-    //                         ];
-    //                     } else {
-    //                         processedCheckList.push(newChecklistItem);
-    //                     }
-    //                 }
-    //             }
-    //         } else {
-    //             const existingIndex = processedCheckList.findIndex(
-    //                 pcl => pcl.title === item.title
-    //             );
-
-    //             if (existingIndex !== -1) {
-    //                 processedCheckList[existingIndex].list = [
-    //                     ...processedCheckList[existingIndex].list,
-    //                     ...item.list.map(listItem => ({
-    //                         text: listItem.text,
-    //                         completed: listItem.completed || false
-    //                     }))
-    //                 ];
-    //             } else {
-    //                 processedCheckList.push({
-    //                     title: item.title,
-    //                     list: item.list.map(listItem => ({
-    //                         text: listItem.text,
-    //                         completed: listItem.completed || false
-    //                     }))
-    //                 });
-    //             }
-    //         }
-    //     }
-
-    //     const updatedCard = await card.findByIdAndUpdate(
-    //         cardId,
-    //         { $set: { checkList: processedCheckList } },
-    //         { new: true }
-    //     );
-
-    //     return res.status(200).json({
-    //         success: true,
-    //         message: 'Checklist updated successfully',
-    //         data: updatedCard
-    //     });
-
-    // } catch (error) {
-    //     console.log(error);
-    //     return res.status(500).json({ success: false, message: error.message });
-    // }
 };
 
 exports.setCurrentTimeUsibngCardId = async (req, res) => {
