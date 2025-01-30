@@ -45,261 +45,68 @@ exports.getAllCardData = async (req, res) => {
         let pageSize = parseInt(req.query.pageSize);
 
         if (page < 1 || pageSize < 1) {
-            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" });
+            return res.status(401).json({
+                status: 401,
+                success: false,
+                message: "Page And PageSize Can't Be Less Than 1"
+            });
         }
 
-        let paginatedCardData;
+        const totalCount = await card.countDocuments();
 
-        paginatedCardData = await card.find().populate('listId').populate('member.user');
-
-        let count = paginatedCardData.length;
-
-        if (count === 0) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" });
-        }
-
-        if (page && pageSize) {
-            let startIndex = (page - 1) * pageSize;
-            let lastIndex = (startIndex + pageSize);
-            paginatedCardData = await paginatedCardData.slice(startIndex, lastIndex);
-        }
-
-        // New aggregation logic for custom fields and list data
-        const enrichedCardDataPromises = paginatedCardData.map(async cardItem => {
-            const customFieldsData = cardItem.customFields;
-
-            // Fetch custom fields
-            const customFields = await customfield.aggregate([
-                { $unwind: "$field" },
-                {
-                    $match: {
-                        "field._id": {
-                            $in: customFieldsData.map(cf => cf.fieldId)
-                        }
-                    }
-                },
-                { $unwind: "$field.fieldOptions" },
-                {
-                    $group: {
-                        _id: "$field._id",
-                        fieldLabel: { $first: "$field.fieldLabel" },
-                        fieldType: { $first: "$field.fieldType" },
-                        fieldShown: { $first: "$field.fieldShown" },
-                        fieldOptions: {
-                            $push: {
-                                _id: "$field.fieldOptions._id",
-                                optionName: "$field.fieldOptions.text",
-                                optionColor: "$field.fieldOptions.color"
-                            }
-                        }
-                    }
-                },
-                {
-                    $lookup: {
-                        from: "cards",
-                        let: { fieldId: "$_id" },
-                        pipeline: [
-                            { $match: { _id: new mongoose.Types.ObjectId(cardItem._id) } },
-                            { $unwind: "$customFields" },
-                            {
-                                $match: {
-                                    $expr: {
-                                        $eq: ["$customFields.fieldId", "$$fieldId"]
-                                    }
-                                }
-                            },
-                            {
-                                $project: {
-                                    selectedOptions: "$customFields.selectedOptions"
-                                }
-                            }
-                        ],
-                        as: "cardField"
-                    }
-                },
-                {
-                    $addFields: {
-                        selectedOptionIds: {
-                            $ifNull: [
-                                { $arrayElemAt: ["$cardField.selectedOptions", 0] },
-                                []
-                            ]
-                        }
-                    }
-                },
-                {
-                    $addFields: {
-                        selectedOptions: {
-                            $filter: {
-                                input: "$fieldOptions",
-                                as: "option",
-                                cond: {
-                                    $in: ["$$option._id", "$selectedOptionIds"]
-                                }
-                            }
-                        }
-                    }
-                },
-                {
-                    $project: {
-                        _id: 1,
-                        fieldLabel: 1,
-                        fieldType: 1,
-                        fieldShown: 1,
-                        selectedOptions: 1
-                    }
-                }
-            ]);
-
-            // Fetch list data
-            const listData = await card.aggregate([
-                {
-                    $match: { _id: new mongoose.Types.ObjectId(cardItem._id) }
-                },
-                {
-                    $lookup: {
-                        from: 'boards',
-                        let: { labelIds: '$label.labelId' },
-                        pipeline: [
-                            {
-                                $unwind: '$label'
-                            },
-                            {
-                                $match: {
-                                    $expr: {
-                                        $in: ['$label._id', '$$labelIds']
-                                    }
-                                }
-                            },
-                            {
-                                $project: {
-                                    'label._id': 1,
-                                    'label.data': 1,
-                                    'label.color': 1,
-                                    'label.status': 1
-                                }
-                            }
-                        ],
-                        as: 'labelInfo'
-                    }
-                },
-                {
-                    $project: {
-                        labelInfo: 1 
-                    }
-                }
-            ]);
-
-            return {
-                getCardDataId: cardItem,
-                customFields,
-                listData
-            };
-        });
-
-        const enrichedCardData = await Promise.all(enrichedCardDataPromises);
-
-        return res.status(200).json({
-            status: 200,
-            success: true,
-            message: "All Card Data Found Successfully...",
-            data: enrichedCardData
-        });
-
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json({ status: 500, success: false, message: error.message });
-    }
-}
-
-exports.getCardDataById = async (req, res) => {
-    try {
-        let id = req.params.id;
-
-        let getCardDataId = await card.findById(id)
-            .populate('listId')
-            .populate('member.user');
-
-        if (!getCardDataId) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Data Not Found" });
-        }
-
-        const customFieldsData = getCardDataId.customFields;
-
-
-        const customFields = await customfield.aggregate([
-
-            { $unwind: "$field" },
-
-            {
-                $match: {
-                    "field._id": {
-                        $in: customFieldsData.map(cf => cf.fieldId)
-                    }
-                }
-            },
-
-            { $unwind: "$field.fieldOptions" },
-
-            {
-                $group: {
-                    _id: "$field._id",
-                    fieldLabel: { $first: "$field.fieldLabel" },
-                    fieldType: { $first: "$field.fieldType" },
-                    fieldShown: { $first: "$field.fieldShown" },
-                    fieldOptions: {
-                        $push: {
-                            _id: "$field.fieldOptions._id",
-                            optionName: "$field.fieldOptions.text",
-                            optionColor: "$field.fieldOptions.color"
-                        }
-                    }
-                }
-            },
+        let paginatedCardData = await card.aggregate([
 
             {
                 $lookup: {
-                    from: "cards",
-                    let: { fieldId: "$_id" },
+                    from: 'boards',
+                    let: { labelIds: '$label.labelId' },
                     pipeline: [
-                        { $match: { _id: new mongoose.Types.ObjectId(id) } },
-                        { $unwind: "$customFields" },
                         {
-                            $match: {
-                                $expr: {
-                                    $eq: ["$customFields.fieldId", "$$fieldId"]
-                                }
-                            }
+                            $unwind: '$label'
                         },
                         {
                             $project: {
-                                selectedOptions: "$customFields.selectedOptions"
+                                'label._id': 1,
+                                'label.data': 1,
+                                'label.color': 1,
+                                'label.status': 1
                             }
                         }
                     ],
-                    as: "cardField"
+                    as: 'boardLabels'
                 }
             },
 
             {
                 $addFields: {
-                    selectedOptionIds: {
-                        $ifNull: [
-                            { $arrayElemAt: ["$cardField.selectedOptions", 0] },
-                            []
-                        ]
-                    }
-                }
-            },
-
-            {
-                $addFields: {
-                    selectedOptions: {
-                        $filter: {
-                            input: "$fieldOptions",
-                            as: "option",
-                            cond: {
-                                $in: ["$$option._id", "$selectedOptionIds"]
+                    label: {
+                        $map: {
+                            input: '$label',
+                            as: 'cardLabel',
+                            in: {
+                                labelId: '$$cardLabel.labelId',
+                                labelData: {
+                                    $let: {
+                                        vars: {
+                                            matchingLabel: {
+                                                $first: {
+                                                    $filter: {
+                                                        input: '$boardLabels',
+                                                        as: 'boardLabel',
+                                                        cond: {
+                                                            $eq: ['$$boardLabel.label._id', '$$cardLabel.labelId']
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        in: {
+                                            data: '$$matchingLabel.label.data',
+                                            color: '$$matchingLabel.label.color',
+                                            status: '$$matchingLabel.label.status'
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -308,16 +115,62 @@ exports.getCardDataById = async (req, res) => {
 
             {
                 $project: {
-                    _id: 1,
-                    fieldLabel: 1,
-                    fieldType: 1,
-                    fieldShown: 1,
-                    selectedOptions: 1
+                    listId: 1,
+                    title: 1,
+                    description: 1,
+                    archived: 1,
+                    color: 1,
+                    startDate: 1,
+                    dueDate: 1,
+                    status: 1,
+                    position: 1,
+                    attachments: 1,
+                    member: 1,
+                    customFields: 1,
+                    cover: 1,
+                    checkList: 1,
+                    currentTime: 1,
+                    label: 1,
                 }
             }
         ]);
 
-        const listData = await card.aggregate([
+        if (paginatedCardData.length === 0) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Card Data Not Found"
+            });
+        }
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "All Card Data Found Successfully...",
+            data: paginatedCardData,
+            pagination: {
+                currentPage: page,
+                pageSize: pageSize,
+                totalItems: totalCount,
+                totalPages: Math.ceil(totalCount / pageSize)
+            }
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+exports.getCardDataById = async (req, res) => {
+    try {
+        let id = req.params.id;
+
+        let getCardDataId = await card.aggregate([
             {
                 $match: { _id: new mongoose.Types.ObjectId(id) }
             },
@@ -330,13 +183,6 @@ exports.getCardDataById = async (req, res) => {
                             $unwind: '$label'
                         },
                         {
-                            $match: {
-                                $expr: {
-                                    $in: ['$label._id', '$$labelIds']
-                                }
-                            }
-                        },
-                        {
                             $project: {
                                 'label._id': 1,
                                 'label.data': 1,
@@ -345,26 +191,79 @@ exports.getCardDataById = async (req, res) => {
                             }
                         }
                     ],
-                    as: 'labelInfo'
+                    as: 'boardLabels'
+                }
+            },
+            {
+                $addFields: {
+                    label: {
+                        $map: {
+                            input: '$label',
+                            as: 'cardLabel',
+                            in: {
+                                labelId: '$$cardLabel.labelId',
+                                labelData: {
+                                    $let: {
+                                        vars: {
+                                            matchingLabel: {
+                                                $first: {
+                                                    $filter: {
+                                                        input: '$boardLabels',
+                                                        as: 'boardLabel',
+                                                        cond: {
+                                                            $eq: ['$$boardLabel.label._id', '$$cardLabel.labelId']
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        in: {
+                                            data: '$$matchingLabel.label.data',
+                                            color: '$$matchingLabel.label.color',
+                                            status: '$$matchingLabel.label.status'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             {
                 $project: {
-                    labelInfo: 1 
+                    listId: 1,
+                    title: 1,
+                    description: 1,
+                    archived: 1,
+                    color: 1,
+                    startDate: 1,
+                    dueDate: 1,
+                    status: 1,
+                    position: 1,
+                    attachments: 1,
+                    member: 1,
+                    customFields: 1,
+                    cover: 1,
+                    checkList: 1,
+                    currentTime: 1,
+                    label: 1,
                 }
             }
+        ]);
 
-        ])
+        if (getCardDataId.length === 0) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Card Data Not Found"
+            });
+        }
 
         return res.status(200).json({
             status: 200,
             success: true,
             message: "Card Data Found Successfully...",
-            data: {
-                getCardDataId,
-                customFields,
-                listData
-            }
+            data: getCardDataId[0]
         });
 
     } catch (error) {
@@ -1537,7 +1436,7 @@ exports.createCardChecklist = async (req, res) => {
                 if (item.title && !item.list) {
                     processedCheckList.push({
                         title: item.title,
-                        list: [] 
+                        list: []
                     });
                 } else {
                     const existingIndex = processedCheckList.findIndex(
