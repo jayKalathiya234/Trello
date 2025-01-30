@@ -18,7 +18,7 @@ const cardSchema = mongoose.Schema({
         type: Boolean,
         default: false
     },
-    color:{
+    color: {
         type: String
     },
     startDate: {
@@ -40,7 +40,7 @@ const cardSchema = mongoose.Schema({
         labelId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'board',
-        },       
+        },
     }],
     attachments: [{
         url: {
@@ -55,7 +55,7 @@ const cardSchema = mongoose.Schema({
             type: Boolean,
             default: false
         },
-        title:{
+        title: {
             type: String,
         }
     }],
@@ -75,30 +75,34 @@ const cardSchema = mongoose.Schema({
         }]
     }],
     cover: [{
-        image:[{
+        image: [{
             type: String,
             require: true
         }],
         color: {
             type: String,
         },
-        size:{
+        size: {
             type: String,
             // require: true
         }
     }],
-    checkList: [
-        {
+    checkList: [{
+        title: String,
+        list: [{
             text: {
                 type: String,
-                require: true
+                required: true
             },
             completed: {
                 type: Boolean,
                 default: false
             }
-        }
-    ]
+        }]
+    }],
+    currentTime: {
+        type: String
+    }
 }, {
     timestamps: true,
     versionKey: false

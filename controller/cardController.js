@@ -3,12 +3,10 @@ const List = require('../models/listModel')
 const Board = require('../models/boardModels')
 const { default: mongoose } = require('mongoose')
 const customfield = require('../models/CustomFieldModel')
+
 exports.createCard = async (req, res) => {
     try {
         let { listId, title, description, dueDate, color, status, position, attachments, comments, customFields, checkList } = req.body
-
-
-
 
         let checkCardIsExist = await card.findOne({ title })
 
@@ -726,108 +724,149 @@ exports.archivedCardById = async (req, res) => {
     }
 }
 
-exports.createCheckList = async (req, res) => {
-    try {
-        const cardId = req.params.id;
-        const { text, completed = false } = req.body;
+// exports.createCheckList = async (req, res) => {
+//     try {
+//         const cardId = req.params.id;
+//         const { text, completed = false } = req.body;
 
-        // Find the card by ID
-        let cardData = await card.findById(cardId);
+//         // Find the card by ID
+//         let cardData = await card.findById(cardId);
 
-        if (!cardData) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
-        }
+//         if (!cardData) {
+//             return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+//         }
 
-        // Add the new checklist item
-        const newChecklistItem = { text, completed };
-        cardData.checkList.push(newChecklistItem);
+//         // Add the new checklist item
+//         const newChecklistItem = { text, completed };
+//         cardData.checkList.push(newChecklistItem);
 
-        // Save the updated card
-        await cardData.save();
+//         // Save the updated card
+//         await cardData.save();
 
-        return res.status(201).json({ status: 201, success: true, message: "Checklist item created successfully", data: cardData });
+//         return res.status(201).json({ status: 201, success: true, message: "Checklist item created successfully", data: cardData });
 
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ status: 500, success: false, message: error.message });
-    }
-}
+//     } catch (error) {
+//         console.error(error);
+//         return res.status(500).json({ status: 500, success: false, message: error.message });
+//     }
+// }
 
 exports.updateCheckList = async (req, res) => {
     try {
         const cardId = req.params.id;
-        const { checklistId, text, completed } = req.body;
+        const { checklistId, text, completed, title } = req.body;
 
         // Find the card by ID
         let cardData = await card.findById(cardId);
 
         if (!cardData) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Card Not Found"
+            });
         }
 
-        // Find the checklist by ID within the card
+        // Find the checklist within the card using checklistId
         let checklist = cardData.checkList.id(checklistId);
 
         if (!checklist) {
-            return res.status(404).json({ status: 404, success: false, message: "Checklist Not Found" });
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Checklist Not Found"
+            });
         }
-        console.log(completed)
 
-        // Update the checklist items
-        if (text !== undefined) checklist.text = text;
-        if (completed !== undefined) checklist.completed = completed;
+        // If title is provided, update the checklist title
+        if (title !== undefined) checklist.title = title;
 
-        // Save the updated card
+        // Loop through the list array in checklist and update any items if passed in request body
+        checklist.list.forEach(item => {
+            // If text is passed, update the text
+            if (text !== undefined && item.text !== text) {
+                item.text = text;
+            }
+
+            // If completed is passed, update the completed status
+            if (completed !== undefined) {
+                item.completed = completed;
+            }
+        });
+
         await cardData.save();
 
-        return res.status(200).json({ status: 200, success: true, message: "Checklist updated successfully", data: cardData });
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Checklist updated successfully",
+            data: cardData
+        });
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ status: 500, success: false, message: error.message });
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: error.message
+        });
     }
 }
+
 exports.deleteCheckList = async (req, res) => {
     try {
-        const cardId = req.params.id;
-        const { checklistId } = req.body;
+        const listId = req.params.id;
 
-        // Find the card by ID
-        let cardData = await card.findById(cardId);
+        let cardData = await card.findOne({ "checkList._id": listId });
 
         if (!cardData) {
-            return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Card or Checklist item Not Found"
+            });
         }
 
-        // Use $pull to remove the checklist item by ID
-        cardData = await card.findByIdAndUpdate(
-            cardId,
-            { $pull: { checkList: { _id: checklistId } } },
+        cardData = await card.findOneAndUpdate(
+            { "checkList._id": listId },
+            {
+                $pull: {
+                    checkList: { _id: listId }
+                }
+            },
             { new: true }
         );
 
-        return res.status(200).json({ status: 200, success: true, message: "Checklist item deleted successfully", data: cardData });
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Checklist item deleted successfully",
+            data: cardData
+        });
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ status: 500, success: false, message: error.message });
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: error.message
+        });
     }
 }
+
 exports.deleteAllCheckList = async (req, res) => {
     try {
         const cardId = req.params.id;
 
-        // Find the card by ID
         let cardData = await card.findById(cardId);
 
         if (!cardData) {
             return res.status(404).json({ status: 404, success: false, message: "Card Not Found" });
         }
 
-        // Use $set to clear the checkList array
         cardData = await card.findByIdAndUpdate(
             cardId,
-            { $set: { checkList: [] } }, // Clear all checklist items
+            { $set: { checkList: [] } },
             { new: true }
         );
 
@@ -838,6 +877,7 @@ exports.deleteAllCheckList = async (req, res) => {
         return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
+
 exports.createCover = async (req, res) => {
     try {
         const cardId = req.params.id;
@@ -1148,3 +1188,227 @@ exports.updateCardCustomFields = async (req, res) => {
         });
     }
 };
+
+
+exports.createCardChecklist = async (req, res) => {
+    try {
+        const cardId = req.params.id;
+        const { checkList } = req.body;
+        
+        if (!cardId || !checkList) {
+            return res.status(400).json({
+                success: false,
+                message: 'Card ID and checklist are required'
+            });
+        }
+
+        const existingCard = await card.findById(cardId);
+        if (!existingCard) {
+            return res.status(404).json({
+                success: false,
+                message: 'Card not found'
+            });
+        }
+
+        let processedCheckList = [...existingCard.checkList || []];
+
+        for (const item of checkList) {
+            if (item.listId) {
+                const sourceCard = await card.findOne({
+                    'checkList._id': item.listId 
+                });
+
+                if (sourceCard) {
+                    const sourceChecklist = sourceCard.checkList.find(
+                        cl => cl._id.toString() === item.listId
+                    );
+
+                    if (sourceChecklist) {
+                        const existingIndex = processedCheckList.findIndex(
+                            pcl => pcl.title === (item.title || sourceChecklist.title)
+                        );
+
+                        const newChecklistItem = {
+                            title: item.title || sourceChecklist.title,
+                            list: sourceChecklist.list.map(listItem => ({
+                                text: listItem.text,
+                                completed: listItem.completed || false
+                            }))
+                        };
+
+                        if (existingIndex !== -1) {
+                            processedCheckList[existingIndex].list = [
+                                ...processedCheckList[existingIndex].list,
+                                ...newChecklistItem.list
+                            ];
+                        } else {
+                            processedCheckList.push(newChecklistItem);
+                        }
+                    }
+                }
+            } else {
+                const existingIndex = processedCheckList.findIndex(
+                    pcl => pcl.title === item.title
+                );
+
+                if (existingIndex !== -1) {
+                    processedCheckList[existingIndex].list = [
+                        ...processedCheckList[existingIndex].list,
+                        ...item.list.map(listItem => ({
+                            text: listItem.text,
+                            completed: listItem.completed || false
+                        }))
+                    ];
+                } else {
+                    processedCheckList.push({
+                        title: item.title,
+                        list: item.list.map(listItem => ({
+                            text: listItem.text,
+                            completed: listItem.completed || false
+                        }))
+                    });
+                }
+            }
+        }
+
+        // Update the card with the new checklist
+        const updatedCard = await card.findByIdAndUpdate(
+            cardId,
+            { $set: { checkList: processedCheckList } },
+            { new: true }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Checklist updated successfully',
+            data: updatedCard
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+    // try {
+    //     const cardId = req.params.id;
+    //     const { checkList } = req.body;
+
+    //     if (!cardId || !checkList) {
+    //         return res.status(400).json({
+    //             success: false,
+    //             message: 'Card ID and checklist are required'
+    //         });
+    //     }
+
+    //     const existingCard = await card.findById(cardId);
+    //     if (!existingCard) {
+    //         return res.status(404).json({
+    //             success: false,
+    //             message: 'Card not found'
+    //         });
+    //     }
+
+    //     let processedCheckList = [...existingCard.checkList || []];
+
+    //     for (const item of checkList) {
+    //         if (item.listId) {
+    //             const sourceCard = await card.findOne({
+    //                 'checkList.list._id': item.listId
+    //             });
+
+    //             if (sourceCard) {
+    //                 const existingChecklist = sourceCard.checkList.find(
+    //                     cl => cl.list.some(l => l._id.toString() === item.listId)
+    //                 );
+
+    //                 if (existingChecklist) {
+    //                     const existingIndex = processedCheckList.findIndex(
+    //                         pcl => pcl.title === (item.title || existingChecklist.title)
+    //                     );
+
+    //                     const newChecklistItem = {
+    //                         title: item.title || existingChecklist.title,
+    //                         list: existingChecklist.list.filter(l =>
+    //                             l._id.toString() === item.listId
+    //                         )
+    //                     };
+
+    //                     if (existingIndex !== -1) {
+    //                         processedCheckList[existingIndex].list = [
+    //                             ...processedCheckList[existingIndex].list,
+    //                             ...newChecklistItem.list
+    //                         ];
+    //                     } else {
+    //                         processedCheckList.push(newChecklistItem);
+    //                     }
+    //                 }
+    //             }
+    //         } else {
+    //             const existingIndex = processedCheckList.findIndex(
+    //                 pcl => pcl.title === item.title
+    //             );
+
+    //             if (existingIndex !== -1) {
+    //                 processedCheckList[existingIndex].list = [
+    //                     ...processedCheckList[existingIndex].list,
+    //                     ...item.list.map(listItem => ({
+    //                         text: listItem.text,
+    //                         completed: listItem.completed || false
+    //                     }))
+    //                 ];
+    //             } else {
+    //                 processedCheckList.push({
+    //                     title: item.title,
+    //                     list: item.list.map(listItem => ({
+    //                         text: listItem.text,
+    //                         completed: listItem.completed || false
+    //                     }))
+    //                 });
+    //             }
+    //         }
+    //     }
+
+    //     const updatedCard = await card.findByIdAndUpdate(
+    //         cardId,
+    //         { $set: { checkList: processedCheckList } },
+    //         { new: true }
+    //     );
+
+    //     return res.status(200).json({
+    //         success: true,
+    //         message: 'Checklist updated successfully',
+    //         data: updatedCard
+    //     });
+
+    // } catch (error) {
+    //     console.log(error);
+    //     return res.status(500).json({ success: false, message: error.message });
+    // }
+};
+
+exports.setCurrentTimeUsibngCardId = async (req, res) => {
+    try {
+        let cardId = req.params.id
+
+        let { currentTime } = req.body
+
+        let checkCardData = await card.findById(cardId)
+
+        if (!checkCardData) {
+            return res.status(404).json({ status: 404, message: "Card Data Not Fond" })
+        }
+
+        if (!currentTime) {
+            return res.status(400).json({ success: false, message: 'Current time is required' });
+        }
+
+        checkCardData.currentTime = currentTime
+
+        await checkCardData.save();
+
+        return res.status(200).json({ success: true, message: 'Current time Set successfully', data: checkCardData });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
