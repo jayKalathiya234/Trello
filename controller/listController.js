@@ -209,13 +209,12 @@ exports.createList = async (req, res) => {
 
 exports.getAllLists = async (req, res) => {
     try {
-        let id = req.params.id;
-
-        let page = parseInt(req.query.page);
-        let pageSize = parseInt(req.query.pageSize);
+        let id = req.params.id
+        let page = parseInt(req.query.page)
+        let pageSize = parseInt(req.query.pageSize)
 
         if (page < 1 || pageSize < 1) {
-            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" });
+            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
         }
 
         let paginatedListData = await list.aggregate([
@@ -266,6 +265,116 @@ exports.getAllLists = async (req, res) => {
                             }
                         },
                         {
+                            $lookup: {
+                                from: 'customfields',
+                                let: { boardId: id },
+                                pipeline: [
+                                    {
+                                        $match: {
+                                            $expr: { $eq: ["$boardId", { $toObjectId: "$$boardId" }] }
+                                        }
+                                    },
+                                    {
+                                        $unwind: "$field"
+                                    },
+                                    {
+                                        $project: {
+                                            _id: 1,
+                                            "field._id": 1,
+                                            "field.fieldLabel": 1,
+                                            "field.fieldType": 1,
+                                            "field.fieldShown": 1,
+                                            "field.fieldOptions": {
+                                                $map: {
+                                                    input: "$field.fieldOptions",
+                                                    as: "option",
+                                                    in: {
+                                                        _id: "$$option._id",
+                                                        color: "$$option.color",
+                                                        text: "$$option.text"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        $group: {
+                                            _id: "$_id",
+                                            fields: {
+                                                $push: "$field"
+                                            }
+                                        }
+                                    }
+                                ],
+                                as: 'customFieldsData'
+                            }
+                        },
+                        {
+                            $addFields: {
+                                customFieldDetails: {
+                                    $map: {
+                                        input: "$customFields",
+                                        as: "cf",
+                                        in: {
+                                            $let: {
+                                                vars: {
+                                                    matchedFieldData: {
+                                                        $arrayElemAt: [{
+                                                            $filter: {
+                                                                input: {
+                                                                    $reduce: {
+                                                                        input: "$customFieldsData.fields",
+                                                                        initialValue: [],
+                                                                        in: { $concatArrays: ["$$value", "$$this"] }
+                                                                    }
+                                                                },
+                                                                as: "field",
+                                                                cond: { $eq: ["$$field._id", "$$cf.fieldId"] }
+                                                            }
+                                                        }, 0]
+                                                    }
+                                                },
+                                                in: {
+                                                    fieldId: "$$cf.fieldId",
+                                                    fieldLabel: "$$matchedFieldData.fieldLabel",
+                                                    fieldType: "$$matchedFieldData.fieldType",
+                                                    fieldShown: "$$matchedFieldData.fieldShown",
+                                                    selectedOptions: {
+                                                        $map: {
+                                                            input: "$$cf.selectedOptions",
+                                                            as: "optionId",
+                                                            in: {
+                                                                $let: {
+                                                                    vars: {
+                                                                        optionData: {
+                                                                            $arrayElemAt: [{
+                                                                                $filter: {
+                                                                                    input: "$$matchedFieldData.fieldOptions",
+                                                                                    as: "fo",
+                                                                                    cond: {
+                                                                                        $eq: ["$$fo._id", "$$optionId"]
+                                                                                    }
+                                                                                }
+                                                                            }, 0]
+                                                                        }
+                                                                    },
+                                                                    in: {
+                                                                        _id: "$$optionId",
+                                                                        color: "$$optionData.color",
+                                                                        text: "$$optionData.text"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
                             $unwind: {
                                 path: "$label",
                                 preserveNullAndEmptyArrays: true
@@ -306,6 +415,7 @@ exports.getAllLists = async (req, res) => {
                                 dueDate: { $first: "$dueDate" },
                                 startDate: { $first: "$startDate" },
                                 status: { $first: "$status" },
+                                customFields: { $first: "$customFieldDetails" },
                                 labels: {
                                     $push: {
                                         $mergeObjects: [
@@ -319,6 +429,9 @@ exports.getAllLists = async (req, res) => {
                                 },
                                 memberDetails: { $first: "$memberDetails" }
                             }
+                        },
+                        {
+                            $sort: { position: 1 }
                         }
                     ],
                     as: "cardData"
@@ -334,44 +447,10 @@ exports.getAllLists = async (req, res) => {
                     color: 1,
                     createdAt: 1,
                     updatedAt: 1,
-                    cardData: 1,
+                    cardData: 1
                 }
             }
         ]);
-
-        const customFieldsData = await customfield.aggregate([
-            {
-                $match: {
-                    boardId: new mongoose.Types.ObjectId(id)
-                }
-            },
-            {
-                $unwind: "$field"
-            },
-            {
-                $unwind: "$field.fieldOptions"
-            },
-           
-            {
-                $group: {
-                    _id: "$field._id",
-                    fieldLabel: { $first: "$field.fieldLabel" },
-                    fieldType: { $first: "$field.fieldType" },
-                    fieldShown: { $first: "$field.fieldShown" },
-                    fieldOptions: { $push: "$field.fieldOptions" }
-                }
-            }
-        ]);
-
-        paginatedListData = paginatedListData.map(list => {
-            list.cardData = list.cardData.map(card => {
-                return {
-                    ...card,
-                    customFields: customFieldsData
-                };
-            });
-            return list;
-        });
 
         let count = paginatedListData.length;
 
