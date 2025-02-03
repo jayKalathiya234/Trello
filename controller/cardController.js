@@ -112,7 +112,14 @@ exports.getAllCardData = async (req, res) => {
                     }
                 }
             },
-
+            {
+                $lookup: {
+                    from: 'lists',
+                    localField: 'listId',
+                    foreignField: '_id',
+                    as: 'listData'
+                }
+            },
             {
                 $project: {
                     listId: 1,
@@ -131,6 +138,7 @@ exports.getAllCardData = async (req, res) => {
                     checkList: 1,
                     currentTime: 1,
                     label: 1,
+                    listData: 1
                 }
             }
         ]);
@@ -230,6 +238,14 @@ exports.getCardDataById = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: 'lists',
+                    localField: 'listId',
+                    foreignField: '_id',
+                    as: 'listData'
+                }
+            },
+            {
                 $project: {
                     listId: 1,
                     title: 1,
@@ -247,6 +263,7 @@ exports.getCardDataById = async (req, res) => {
                     checkList: 1,
                     currentTime: 1,
                     label: 1,
+                    listData: 1
                 }
             }
         ]);
