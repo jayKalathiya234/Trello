@@ -22,9 +22,9 @@ const userSchema = mongoose.Schema({
         type: String,
         require: true
     },
-    premium:{
-        type:Boolean,
-        default:false
+    premium: {
+        type: String,
+        default: "free"
     }
 }, {
     timestamps: true,

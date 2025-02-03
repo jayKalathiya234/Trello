@@ -1,6 +1,7 @@
 const list = require('../models/listModel');
 const board = require('../models/boardModels');
 const mongoose = require('mongoose')
+const customfield = require('../models/CustomFieldModel')
 
 exports.createList = async (req, res) => {
     try {
@@ -44,15 +45,177 @@ exports.createList = async (req, res) => {
     }
 }
 
+// exports.getAllLists = async (req, res) => {
+//     try {
+//         let id = req.params.id
+
+//         let page = parseInt(req.query.page)
+//         let pageSize = parseInt(req.query.pageSize)
+
+//         if (page < 1 || pageSize < 1) {
+//             return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
+//         }
+
+//         let paginatedListData = await list.aggregate([
+//             {
+//                 $match: {
+//                     boardId: new mongoose.Types.ObjectId(id)
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'boards',
+//                     localField: 'boardId',
+//                     foreignField: '_id',
+//                     pipeline: [
+//                         {
+//                             $project: {
+//                                 label: 1
+//                             }
+//                         },
+//                         {
+//                             $unwind: "$label"
+//                         },
+//                         {
+//                             $group: {
+//                                 _id: "$_id",
+//                                 labels: {
+//                                     $push: {
+//                                         _id: "$label._id",
+//                                         data: "$label.data",
+//                                         color: "$label.color",
+//                                         status: "$label.status"
+//                                     }
+//                                 }
+//                             }
+//                         }
+//                     ],
+//                     as: 'boardData'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'cards',
+//                     let: { listId: "$_id", boardLabels: { $arrayElemAt: ["$boardData.labels", 0] } },
+//                     pipeline: [
+//                         {
+//                             $match: {
+//                                 $expr: { $eq: ["$listId", "$$listId"] }
+//                             }
+//                         },
+//                         {
+//                             $unwind: {
+//                                 path: "$label",
+//                                 preserveNullAndEmptyArrays: true
+//                             }
+//                         },
+//                         {
+//                             $addFields: {
+//                                 labelDetails: {
+//                                     $filter: {
+//                                         input: "$$boardLabels",
+//                                         as: "boardLabel",
+//                                         cond: { $eq: ["$$boardLabel._id", "$label.labelId"] }
+//                                     }
+//                                 }
+//                             }
+//                         },
+//                         {
+//                             $lookup: {
+//                                 from: 'users',
+//                                 localField: 'member.user',
+//                                 foreignField: '_id',
+//                                 as: 'memberDetails'
+//                             }
+//                         },
+//                         {
+//                             $group: {
+//                                 _id: "$_id",
+//                                 listId: { $first: "$listId" },
+//                                 title: { $first: "$title" },
+//                                 archived: { $first: "$archived" },
+//                                 position: { $first: "$position" },
+//                                 attachments: { $first: "$attachments" },
+//                                 checkList: { $first: "$checkList" },
+//                                 member: { $first: "$member" },
+//                                 cover: { $first: "$cover" },
+//                                 createdAt: { $first: "$createdAt" },
+//                                 updatedAt: { $first: "$updatedAt" },
+//                                 dueDate: { $first: "$dueDate" },
+//                                 startDate: { $first: "$startDate" },
+//                                 status: { $first: "$status" },
+//                                 labels: {
+//                                     $push: {
+//                                         $mergeObjects: [
+//                                             {
+//                                                 _id: "$label._id",
+//                                                 labelId: "$label.labelId"
+//                                             },
+//                                             { $arrayElemAt: ["$labelDetails", 0] }
+//                                         ]
+//                                     }
+//                                 },
+//                                 memberDetails: { $first: "$memberDetails" }
+//                             }
+//                         },
+//                         {
+//                             $sort: { position: 1 }
+//                         }
+//                     ],
+//                     as: "cardData"
+//                 }
+//             },
+
+//             {
+//                 $project: {
+//                     _id: 1,
+//                     boardId: 1,
+//                     title: 1,
+//                     position: 1,
+//                     archived: 1,
+//                     color: 1,
+//                     createdAt: 1,
+//                     updatedAt: 1,
+//                     cardData: 1,
+//                     // boardLabels: { $arrayElemAt: ["$boardData.labels", 0] }
+//                 }
+//             }
+//         ])
+
+//         let count = paginatedListData.length
+
+//         if (count === 0) {
+//             return res.status(404).json({ status: 404, success: false, message: "List Data Not Found" })
+//         }
+
+//         if (page && pageSize) {
+//             let startIndex = (page - 1) * pageSize
+//             let lastIndex = (startIndex + pageSize)
+//             paginatedListData = paginatedListData.slice(startIndex, lastIndex)
+//         }
+
+//         return res.status(200).json({
+//             status: 200,
+//             success: true,
+//             message: "All List Data Found Successfully...",
+//             data: paginatedListData
+//         })
+
+//     } catch (error) {
+//         console.log(error)
+//         return res.status(500).json({ status: 500, success: false, message: error.message })
+//     }
+// }
+
 exports.getAllLists = async (req, res) => {
     try {
-        let id = req.params.id
+        let id = req.params.id;
 
-        let page = parseInt(req.query.page)
-        let pageSize = parseInt(req.query.pageSize)
+        let page = parseInt(req.query.page);
+        let pageSize = parseInt(req.query.pageSize);
 
         if (page < 1 || pageSize < 1) {
-            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" })
+            return res.status(401).json({ status: 401, success: false, message: "Page And PageSize Cann't Be Less Than 1" });
         }
 
         let paginatedListData = await list.aggregate([
@@ -161,7 +324,6 @@ exports.getAllLists = async (req, res) => {
                     as: "cardData"
                 }
             },
-
             {
                 $project: {
                     _id: 1,
@@ -173,21 +335,54 @@ exports.getAllLists = async (req, res) => {
                     createdAt: 1,
                     updatedAt: 1,
                     cardData: 1,
-                    // boardLabels: { $arrayElemAt: ["$boardData.labels", 0] }
                 }
             }
-        ])
+        ]);
 
-        let count = paginatedListData.length
+        const customFieldsData = await customfield.aggregate([
+            {
+                $match: {
+                    boardId: new mongoose.Types.ObjectId(id)
+                }
+            },
+            {
+                $unwind: "$field"
+            },
+            {
+                $unwind: "$field.fieldOptions"
+            },
+           
+            {
+                $group: {
+                    _id: "$field._id",
+                    fieldLabel: { $first: "$field.fieldLabel" },
+                    fieldType: { $first: "$field.fieldType" },
+                    fieldShown: { $first: "$field.fieldShown" },
+                    fieldOptions: { $push: "$field.fieldOptions" }
+                }
+            }
+        ]);
+
+        paginatedListData = paginatedListData.map(list => {
+            list.cardData = list.cardData.map(card => {
+                return {
+                    ...card,
+                    customFields: customFieldsData
+                };
+            });
+            return list;
+        });
+
+        let count = paginatedListData.length;
 
         if (count === 0) {
-            return res.status(404).json({ status: 404, success: false, message: "List Data Not Found" })
+            return res.status(404).json({ status: 404, success: false, message: "List Data Not Found" });
         }
 
         if (page && pageSize) {
-            let startIndex = (page - 1) * pageSize
-            let lastIndex = (startIndex + pageSize)
-            paginatedListData = paginatedListData.slice(startIndex, lastIndex)
+            let startIndex = (page - 1) * pageSize;
+            let lastIndex = (startIndex + pageSize);
+            paginatedListData = paginatedListData.slice(startIndex, lastIndex);
         }
 
         return res.status(200).json({
@@ -195,11 +390,11 @@ exports.getAllLists = async (req, res) => {
             success: true,
             message: "All List Data Found Successfully...",
             data: paginatedListData
-        })
+        });
 
     } catch (error) {
-        console.log(error)
-        return res.status(500).json({ status: 500, success: false, message: error.message })
+        console.log(error);
+        return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
 

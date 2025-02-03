@@ -297,7 +297,7 @@ exports.joinBordByInvitationLink = async (req, res) => {
     try {
         let id = req.params.id
 
-        let { role } = req.body
+        // let { role } = req.body
 
         let checkInvitationLink = await board.findOne({ invitationLink: id })
 
@@ -315,7 +315,7 @@ exports.joinBordByInvitationLink = async (req, res) => {
 
         checkInvitationLink.members.push({
             user: req.user._id,
-            role: role
+            // role: role
         });
 
         await checkInvitationLink.save();
@@ -473,7 +473,7 @@ exports.getBoardJoinInvitaionLingUsingEmail = async (req, res) => {
             from: process.env.EMAIL_USER,
             to: email,
             subject: "Join Invitation You To a Trllo Board",
-            text: `You have been invited to join the board http://localhost:6000/api/joinBoardByInvitation/${getBoardData.invitationLink}`
+            text: `You have been invited to join the board http://localhost:3000/layout/myboard/${getBoardData._id}?${getBoardData.invitationLink}`
         }
 
         transport.sendMail(mailOptions, (error) => {

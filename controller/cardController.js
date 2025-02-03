@@ -1545,3 +1545,34 @@ exports.setCurrentTimeUsibngCardId = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 }
+
+
+exports.updateCheckListStatus = async (req, res) => {
+    try {
+        let id = req.params.id
+
+        let { completed } = req.body;
+
+        let updatedCard = await card.findOneAndUpdate({
+            "checkList.list._id": id
+        },
+            {
+                $set: { "checkList.$[].list.$[item].completed": completed }
+            },
+            {
+                arrayFilters: [{ "item._id": id }],
+                new: true
+            })
+            ;
+
+        if (!updatedCard) {
+            return res.status(404).json({ status: 404, message: "Check List Not Found" })
+        }
+
+        return res.status(200).json({ success: true, message: "Checklist status updated successfully", updatedCard });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
