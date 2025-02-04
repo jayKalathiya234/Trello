@@ -184,6 +184,131 @@ exports.getAllCardData = async (req, res) => {
 }
 
 exports.getCardDataById = async (req, res) => {
+    // try {
+    //     let id = req.params.id;
+
+    //     let getCardDataId = await card.aggregate([
+    //         {
+    //             $match: { _id: new mongoose.Types.ObjectId(id) }
+    //         },
+    //         {
+    //             $lookup: {
+    //                 from: 'boards',
+    //                 let: { labelIds: '$label.labelId' },
+    //                 pipeline: [
+    //                     {
+    //                         $unwind: '$label'
+    //                     },
+    //                     {
+    //                         $project: {
+    //                             'label._id': 1,
+    //                             'label.data': 1,
+    //                             'label.color': 1,
+    //                             'label.status': 1
+    //                         }
+    //                     }
+    //                 ],
+    //                 as: 'boardLabels'
+    //             }
+    //         },
+    //         {
+    //             $addFields: {
+    //                 label: {
+    //                     $map: {
+    //                         input: '$label',
+    //                         as: 'cardLabel',
+    //                         in: {
+    //                             labelId: '$$cardLabel.labelId',
+    //                             labelData: {
+    //                                 $let: {
+    //                                     vars: {
+    //                                         matchingLabel: {
+    //                                             $first: {
+    //                                                 $filter: {
+    //                                                     input: '$boardLabels',
+    //                                                     as: 'boardLabel',
+    //                                                     cond: {
+    //                                                         $eq: ['$$boardLabel.label._id', '$$cardLabel.labelId']
+    //                                                     }
+    //                                                 }
+    //                                             }
+    //                                         }
+    //                                     },
+    //                                     in: {
+    //                                         data: '$$matchingLabel.label.data',
+    //                                         color: '$$matchingLabel.label.color',
+    //                                         status: '$$matchingLabel.label.status'
+    //                                     }
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         },
+    //         {
+    //             $lookup: {
+    //                 from: 'lists',
+    //                 localField: 'listId',
+    //                 foreignField: '_id',
+    //                 as: 'listData'
+    //             }
+    //         },
+    //         {
+    //             $lookup: {
+    //                 from: "users",
+    //                 localField: "member.user",
+    //                 foreignField: "_id",
+    //                 as: "memberData"
+    //             }
+    //         },
+    //         {
+    //             $project: {
+    //                 listId: 1,
+    //                 title: 1,
+    //                 description: 1,
+    //                 archived: 1,
+    //                 color: 1,
+    //                 startDate: 1,
+    //                 dueDate: 1,
+    //                 status: 1,
+    //                 position: 1,
+    //                 attachments: 1,
+    //                 member: 1,
+    //                 customFields: 1,
+    //                 cover: 1,
+    //                 checkList: 1,
+    //                 currentTime: 1,
+    //                 label: 1,
+    //                 listData: 1,
+    //                 memberData: 1
+    //             }
+    //         }
+    //     ]);
+
+    //     if (getCardDataId.length === 0) {
+    //         return res.status(404).json({
+    //             status: 404,
+    //             success: false,
+    //             message: "Card Data Not Found"
+    //         });
+    //     }
+
+    //     return res.status(200).json({
+    //         status: 200,
+    //         success: true,
+    //         message: "Card Data Found Successfully...",
+    //         data: getCardDataId[0]
+    //     });
+
+    // } catch (error) {
+    //     console.log(error);
+    //     return res.status(500).json({
+    //         status: 500,
+    //         success: false,
+    //         message: error.message
+    //     });
+    // }
     try {
         let id = req.params.id;
 
@@ -209,6 +334,64 @@ exports.getCardDataById = async (req, res) => {
                         }
                     ],
                     as: 'boardLabels'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'customfields',
+                    let: { 
+                        customFieldIds: '$customFields.fieldId',
+                        allCustomFields: '$customFields'
+                    },
+                    pipeline: [
+                        {
+                            $unwind: '$field'
+                        },
+                        {
+                            $match: {
+                                $expr: {
+                                    $in: ['$field._id', '$$customFieldIds']
+                                }
+                            }
+                        },
+                        {
+                            $addFields: {
+                                matchingCardField: {
+                                    $filter: {
+                                        input: '$$allCustomFields',
+                                        as: 'cf',
+                                        cond: { $eq: ['$$cf.fieldId', '$field._id'] }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $addFields: {
+                                'field.fieldOptions': {
+                                    $filter: {
+                                        input: '$field.fieldOptions',
+                                        as: 'option',
+                                        cond: {
+                                            $in: [
+                                                '$$option._id',
+                                                { $arrayElemAt: ['$matchingCardField.selectedOptions', 0] }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                'field._id': 1,
+                                'field.fieldLabel': 1,
+                                'field.fieldType': 1,
+                                'field.fieldShown': 1,
+                                'field.fieldOptions': 1
+                            }
+                        }
+                    ],
+                    as: 'customFieldData'
                 }
             },
             {
@@ -247,6 +430,44 @@ exports.getCardDataById = async (req, res) => {
                 }
             },
             {
+                $addFields: {
+                    customFields: {
+                        $map: {
+                            input: '$customFields',
+                            as: 'cardCustomField',
+                            in: {
+                                fieldId: '$$cardCustomField.fieldId',
+                                selectedOptions: '$$cardCustomField.selectedOptions',
+                                fieldData: {
+                                    $let: {
+                                        vars: {
+                                            matchingField: {
+                                                $first: {
+                                                    $filter: {
+                                                        input: '$customFieldData',
+                                                        as: 'customField',
+                                                        cond: {
+                                                            $eq: ['$$customField.field._id', '$$cardCustomField.fieldId']
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        in: {
+                                            fieldLabel: '$$matchingField.field.fieldLabel',
+                                            fieldType: '$$matchingField.field.fieldType',
+                                            fieldShown: '$$matchingField.field.fieldShown',
+                                            fieldOptions: '$$matchingField.field.fieldOptions'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            {
                 $lookup: {
                     from: 'lists',
                     localField: 'listId',
@@ -262,6 +483,7 @@ exports.getCardDataById = async (req, res) => {
                     as: "memberData"
                 }
             },
+            // Final projection
             {
                 $project: {
                     listId: 1,
@@ -1137,6 +1359,7 @@ exports.createCover = async (req, res) => {
         return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
+
 exports.updateCover = async (req, res) => {
     try {
         const cardId = req.params.id;
