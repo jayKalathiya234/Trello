@@ -297,7 +297,7 @@ exports.joinBordByInvitationLink = async (req, res) => {
     try {
         let id = req.params.id
 
-        // let { role } = req.body
+        let { role } = req.body
 
         let checkInvitationLink = await board.findOne({ invitationLink: id })
 
@@ -315,7 +315,7 @@ exports.joinBordByInvitationLink = async (req, res) => {
 
         checkInvitationLink.members.push({
             user: req.user._id,
-            // role: role
+            role: role
         });
 
         await checkInvitationLink.save();
@@ -459,7 +459,7 @@ exports.getBoardJoinInvitaionLingUsingEmail = async (req, res) => {
             return res.status(404).json({ status: 404, success: false, message: "Board Not Found" })
         }
 
-        let { email } = req.body
+        let { email, role } = req.body
 
         const transport = nodemailer.createTransport({
             service: "Gmail",
@@ -481,7 +481,7 @@ exports.getBoardJoinInvitaionLingUsingEmail = async (req, res) => {
                 console.log(error);
                 return res.status(500).json({ status: 500, success: false, message: error.message })
             }
-            return res.status(200).json({ status: 200, success: true, message: "Join Board Invitaion SuccessFully..." });
+            return res.status(200).json({ status: 200, success: true, message: "Join Board Invitaion SuccessFully...", role: role });
         })
 
     } catch (error) {

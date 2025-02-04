@@ -1319,6 +1319,7 @@ exports.updateLabelId = async (req, res) => {
         return res.status(500).json({ status: 500, success: false, message: error.message });
     }
 }
+
 exports.updateCardCustomFields = async (req, res) => {
     try {
         const { cardId, fieldId, selectedOptionIds } = req.body;
