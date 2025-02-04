@@ -483,7 +483,6 @@ exports.getCardDataById = async (req, res) => {
                     as: "memberData"
                 }
             },
-            // Final projection
             {
                 $project: {
                     listId: 1,
