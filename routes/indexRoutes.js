@@ -8,6 +8,7 @@ const { createList, getAllListForBoard, updateListById, deleteListById, getListB
 const { createCard, updateCard, updateCardById, addMambers, createLabel, editLabelById, setStartDateAndDueDate, setAttachementById, createCustomFields, moveCardAndCopy, deleteCardDataById, removeMember, getAllCardData, getCardDataById, updateStartDateAndDueDateById, updateSetAttachement, removeLableById, updateCardData, getCardByList, moveAllCards, deleteAttachement, updateCustomFields, deleteCustomFields, getArchivedCard, archivedAllCardInList, archivedCardById, updateCheckList, createCheckList, deleteCheckList, createCover, updateCover, deleteCover, updateLabelId, updateCardCustomFields, deleteAllCheckList, updateCardChecklist, createCardChecklist, setCurrentTimeUsibngCardId, updateCheckListStatus } = require('../controller/cardController');
 const upload = require('../helper/imageUplode');
 const { createCustomField, editCustomField, deleteCustomField, addCustomFieldOption, updateCustomField, updateCustomFieldById, deleteCustomFieldById, updateCustomFieldfieldShownStatusById } = require('../controller/customFieldController');
+const { exportWorkspaceData, getAllExportsData } = require('../controller/exportsController');
 const indexRoutes = express.Router();
 
 // Auth Routes
@@ -128,5 +129,9 @@ indexRoutes.put('/addCustomeFiled/:id', auth, updateCustomFieldById)
 indexRoutes.delete('/deleteCustomeFiled/:id', auth, deleteCustomFieldById)
 indexRoutes.put('/updatefieldShownStatus/:id', auth, updateCustomFieldfieldShownStatusById)
 
+// ExportsData Routes
+
+indexRoutes.get('/exportData/:id', auth, exportWorkspaceData)
+indexRoutes.get('/allExportData', auth, getAllExportsData)
 
 module.exports = indexRoutes
