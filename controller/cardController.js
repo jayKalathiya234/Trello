@@ -902,7 +902,8 @@ exports.deleteCustomFields = async (req, res) => {
 exports.moveCardAndCopy = async (req, res) => {
     try {
         const cardId = req.params.id;
-        const { targetListId, targetBoardId, newPosition, type = 'move', title } = req.body;
+        const { targetListId, targetBoardId, type = 'move', title } = req.body;
+        let { newPosition } = req.body;
 
         const originalCard = await card.findById(cardId);
         if (!originalCard) {
@@ -911,20 +912,25 @@ exports.moveCardAndCopy = async (req, res) => {
 
         const sourceList = await List.findById(originalCard.listId);
         const targetList = await List.findById(targetListId);
-
         if (!sourceList || !targetList) {
             return res.status(404).json({ success: false, message: "Source or target list not found" });
         }
 
         const sourceBoard = await Board.findById(sourceList.boardId);
         const targetBoard = await Board.findById(targetList.boardId);
-
         if (!sourceBoard || !targetBoard) {
             return res.status(404).json({ success: false, message: "Source or target board not found" });
         }
 
         if (sourceBoard.workSpaceId.toString() !== targetBoard.workSpaceId.toString()) {
             return res.status(403).json({ success: false, message: "Cannot move/copy cards between different workspaces" });
+        }
+
+        if (newPosition === undefined) {
+            const lastCard = await card.findOne({ listId: targetListId })
+                .sort({ position: -1 })
+                .limit(1);
+            newPosition = lastCard ? lastCard.position + 1 : 1;
         }
 
         if (type === 'move') {
@@ -960,16 +966,19 @@ exports.moveCardAndCopy = async (req, res) => {
 
         let resultCard;
         if (type === 'copy') {
-
-            resultCard = await card.create(cardData);
+            resultCard = await card.create({
+                ...cardData,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
         } else {
-
             resultCard = await card.findByIdAndUpdate(
                 cardId,
                 {
                     listId: targetListId,
                     position: newPosition,
-                    title: title || originalCard.title
+                    title: title || originalCard.title,
+                    updatedAt: new Date()
                 },
                 { new: true }
             );
@@ -980,13 +989,11 @@ exports.moveCardAndCopy = async (req, res) => {
             message: `Card ${type === 'copy' ? 'copied' : 'moved'} successfully`,
             data: resultCard
         });
-
     } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };
-
 exports.deleteCardDataById = async (req, res) => {
     try {
         let id = req.params.id

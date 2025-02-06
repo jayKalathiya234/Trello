@@ -681,9 +681,13 @@ exports.copyListData = async (req, res) => {
                 description: card.description,
                 position: card.position,
                 dueDate: card.dueDate,
-                labels: card.labels,
-                members: card.members,
+                label: card.label,
+                member: card.member,
                 color: card.color,
+                attachments: card.attachments,
+                customFields: card.customFields,
+                cover: card.cover,
+                checkList: card.checkList,
                 archived: false
             });
         });

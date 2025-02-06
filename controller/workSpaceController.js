@@ -292,7 +292,7 @@ exports.workSpaceJoinInvitaionLingUsingEmail = async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: "Join Invitation You To a Trllo WorkSpace",
+            subject: "Join Invitation You To a Trello WorkSpace",
             text: `You have been invited to join the board http://localhost:6000/api/joinWorkSpace/${getWorkSpaceData.inviteLink}`
         }
 

@@ -472,7 +472,7 @@ exports.getBoardJoinInvitaionLingUsingEmail = async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: "Join Invitation You To a Trllo Board",
+            subject: "Join Invitation You To a Trello Board",
             text: `You have been invited to join the board http://localhost:3000/layout/myboard/${getBoardData._id}?${getBoardData.invitationLink}`
         }
 
