@@ -25,6 +25,14 @@ const userSchema = mongoose.Schema({
     premium: {
         type: String,
         default: "free"
+    },
+    premiumType: {
+        type: String,
+        enum: ["Monthly", "Annually"],
+    },
+    premiumEndDate: {
+        type: String,
+        require: true
     }
 }, {
     timestamps: true,

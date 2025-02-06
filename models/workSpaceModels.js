@@ -37,18 +37,6 @@ const workSpaceSchema = mongoose.Schema({
     inviteLink: {
         type: String
     },
-    premium: {
-        type: String,
-        default: "free"
-    },
-    premiumType: {
-        type: String,
-        enum: ["Monthly", "Annually"],
-    },
-    premiumEndDate: {
-        type: String,
-        require: true
-    }
 }, {
     timestamps: true,
     versionKey: false
